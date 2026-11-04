@@ -1,0 +1,256 @@
+{
+  "version": 1,
+  "notice": "Originele meegeleverde Castiq-demoassets; geen runtimeuploads of accountgeheimen.",
+  "assets": [
+    {
+      "path": "public/assets/brand-wall.webp",
+      "bytes": 198668,
+      "sha256": "7726b78bc161c783147a1026a306028bf5660db109033aa4fdaa8158b0e1edb4"
+    },
+    {
+      "path": "public/assets/club-getijde.svg",
+      "bytes": 1155,
+      "sha256": "16542cd7bb2a43dba11fb0c892a62703cd63f89a3bd0007cb51164d4c7f7bd29"
+    },
+    {
+      "path": "public/assets/club-wave-landscape.webp",
+      "bytes": 186818,
+      "sha256": "a1b620758b033f9c14b535edec2699469b5f0ac7a6591c3686f241578f2b1ad7"
+    },
+    {
+      "path": "public/assets/club-wave-portrait.webp",
+      "bytes": 350410,
+      "sha256": "2e12ef3e9cc35521c720585d14b4712148db30f7ca3461f8ba7017681bb51686"
+    },
+    {
+      "path": "public/assets/dugout.webp",
+      "bytes": 308436,
+      "sha256": "2b2b43b75496f8825dd098b455f9ff9f6e7a9f8186a9cca75d58f2d5c3b921fd"
+    },
+    {
+      "path": "public/assets/editorial-serif-bold.woff2",
+      "bytes": 133092,
+      "sha256": "ae130d17a2fe506cf42d3d9532cc6f249ae2b311e4f35eb5cfbda379b97e5f14"
+    },
+    {
+      "path": "public/assets/editorial-serif-license.txt",
+      "bytes": 3859,
+      "sha256": "63d3ba759d12804c5b31a9d5940d855c1820d1f5999e6b0872eb1c7ff045fbc9"
+    },
+    {
+      "path": "public/assets/editorial-serif-regular.woff2",
+      "bytes": 146824,
+      "sha256": "6ec6180c1b9a6665decbcf856374d5063e3e9b7bf93dc9c8a01ae60516afddb8"
+    },
+    {
+      "path": "public/assets/font-215a93c696f44203.woff2",
+      "bytes": 22308,
+      "sha256": "215a93c696f442034a46fbb382958f753fda60e30490683aeea6b235fcbb2b66"
+    },
+    {
+      "path": "public/assets/font-2515494e8cc2ca07.woff2",
+      "bytes": 22464,
+      "sha256": "2515494e8cc2ca07c86ea78766cfa104b796aa6ed5d66821c01d51dbb0b52bce"
+    },
+    {
+      "path": "public/assets/font-3100e775e8616cd2.woff2",
+      "bytes": 48256,
+      "sha256": "3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62"
+    },
+    {
+      "path": "public/assets/font-3787a5a419171630.woff2",
+      "bytes": 22444,
+      "sha256": "3787a5a419171630e6890cfa47c4da067474d005cd0ff8dc11ec090fdc3ee2b8"
+    },
+    {
+      "path": "public/assets/font-6f9490582c2ac6f7.woff2",
+      "bytes": 21544,
+      "sha256": "6f9490582c2ac6f7be3126dc0e60e368aa93229667ae360bad0d496e8238e15d"
+    },
+    {
+      "path": "public/assets/football-pitch.webp",
+      "bytes": 170838,
+      "sha256": "2807f281250717f2d7d3b1e012de4bbd09cc7be7e40c9249236a16f7a69c6e68"
+    },
+    {
+      "path": "public/assets/goal-net.webp",
+      "bytes": 253860,
+      "sha256": "fd265b2e6def7ea6f0451eff12d12ec0eddb0841912f3500dba2fcd20ce771d5"
+    },
+    {
+      "path": "public/assets/icon-192.png",
+      "bytes": 13133,
+      "sha256": "7c65fa44f7da00536c9406cf0102aaf92e149dafb43d7ae6dbb790d10ff0db31"
+    },
+    {
+      "path": "public/assets/icon-512.png",
+      "bytes": 40321,
+      "sha256": "d2275287bcbf7132b37302dfaf01907a0d2c013829a1cef8225689f82a8b7494"
+    },
+    {
+      "path": "public/assets/icon-dark.png",
+      "bytes": 40321,
+      "sha256": "d2275287bcbf7132b37302dfaf01907a0d2c013829a1cef8225689f82a8b7494"
+    },
+    {
+      "path": "public/assets/icon-dark.svg",
+      "bytes": 31719,
+      "sha256": "d4ee47ca26317281f3686deb34a96555be03c32931e434425ded22856c1ee47c"
+    },
+    {
+      "path": "public/assets/icon-light.png",
+      "bytes": 83170,
+      "sha256": "507cb4c031981dca46b3c2442836973208423fc816dc1b128355f217dcb16088"
+    },
+    {
+      "path": "public/assets/icon-light.svg",
+      "bytes": 31720,
+      "sha256": "1ac8591ead682855295cf95314e907b6ee54b717ef4d219eaf1d7696f2fa5114"
+    },
+    {
+      "path": "public/assets/icon-maskable-512.png",
+      "bytes": 27938,
+      "sha256": "0697d9c89550e88f1520c3dd5bd8a43628933ded45b8eae6162a2f62d8e7f514"
+    },
+    {
+      "path": "public/assets/logo-dark.png",
+      "bytes": 98947,
+      "sha256": "398b78ef580d6cdb7a581975fee2e9dcd342153ea72e210164a0ee11d91723a1"
+    },
+    {
+      "path": "public/assets/logo-dark.svg",
+      "bytes": 108881,
+      "sha256": "c6f844a1875b976bd8b78f1ff192b35f73a117ee1e7d2105de107a8d1fefc957"
+    },
+    {
+      "path": "public/assets/logo-light.png",
+      "bytes": 100568,
+      "sha256": "0593e98b3b53c6b2449a2da7fb42e880eeeca845b1098372f45b6f000c14d262"
+    },
+    {
+      "path": "public/assets/logo-light.svg",
+      "bytes": 108882,
+      "sha256": "bb6721d57b5765291dbfe7cb5f274a4924f6f3809baa1966963111eb081681b6"
+    },
+    {
+      "path": "public/assets/match-action.webp",
+      "bytes": 154956,
+      "sha256": "921193115e5d5e8400803edf416057882fbe73ff7791c21f65623a6d6c386ee6"
+    },
+    {
+      "path": "public/assets/match-pitch.webp",
+      "bytes": 143120,
+      "sha256": "df651bdcafadeda0deedf90bce73298c3039ed9b9ef45361ba556e4f75e694b2"
+    },
+    {
+      "path": "public/assets/player-1.webp",
+      "bytes": 97948,
+      "sha256": "d9605f9370bea9b4e2dabaff74a047294ec62bdcaf4e1dcc715c72299e44f9b5"
+    },
+    {
+      "path": "public/assets/player-2.webp",
+      "bytes": 87628,
+      "sha256": "30d19216afb60003a94c7a10a93563ff73cac055d0d738e9f97f2bdc39f03882"
+    },
+    {
+      "path": "public/assets/player-3.webp",
+      "bytes": 110186,
+      "sha256": "dcef8d736850a1352f0c4172ac757015a397ed0bd7ad5c410832ac0ccb7efbe7"
+    },
+    {
+      "path": "public/assets/player-4.webp",
+      "bytes": 102462,
+      "sha256": "4ccc44bb42ea670eeb81af720519b88d18aa572df100cd57ad8e6e64379734d0"
+    },
+    {
+      "path": "public/assets/player-cutout.png",
+      "bytes": 1685132,
+      "sha256": "b6566b0377dfacd14b4ec76b8fe6a81accc064d2e9d17e93da9a3c4b7fe00c09"
+    },
+    {
+      "path": "public/assets/stadium-dusk.webp",
+      "bytes": 133122,
+      "sha256": "4020022d2bdb0d9e0bcd1394bb79f1685472fc9969d7128f4be3736abf436f43"
+    },
+    {
+      "path": "public/assets/team-celebration.webp",
+      "bytes": 141026,
+      "sha256": "586c0bb94441668593c3614962e222aa283ce211da6e0a4799c85fc627946fb0"
+    },
+    {
+      "path": "public/assets/team-manager.webp",
+      "bytes": 119730,
+      "sha256": "fcdb097f4fa12c031325b87d9c56294226e9f2ec43177e5484eab422e0453e11"
+    },
+    {
+      "path": "public/assets/team-photo.webp",
+      "bytes": 221080,
+      "sha256": "493d1577c666c7e79b2bf5e5e9b47b61b90a6de8954184f39755f7f7ee9ce612"
+    },
+    {
+      "path": "public/assets/template-atlas-1.png",
+      "bytes": 2961454,
+      "sha256": "922f8c52d2331c3d89e2ab8832bcfef03ca9effc4c1acc12f856d875ec425e4e"
+    },
+    {
+      "path": "public/assets/template-atlas-2.png",
+      "bytes": 2909334,
+      "sha256": "b6ecd5a120fb4744d5316f9b01530f19d5266e58f6208f3570a95483261732a7"
+    },
+    {
+      "path": "public/assets/template-atlas-3-v2.png",
+      "bytes": 2008052,
+      "sha256": "56db55b74b6077d1bd64d1a09a395bfdc5383e61a496bcdd6d2454d6a5298d07"
+    },
+    {
+      "path": "public/assets/texture-broadcast.webp",
+      "bytes": 113232,
+      "sha256": "1eb6e428ee000b00f4ea443baae817a3151deabbd8567086e47374970a881aed"
+    },
+    {
+      "path": "public/assets/texture-clean.webp",
+      "bytes": 89736,
+      "sha256": "b76568b51d59276be34b57d1d4230a9444b84011c39f18385cadafdb5413a05a"
+    },
+    {
+      "path": "public/assets/texture-community.webp",
+      "bytes": 210894,
+      "sha256": "f3d4d1cade063c90d461c7f1e37560ba6a194373a04e3e76bd74e957d1727d8a"
+    },
+    {
+      "path": "public/assets/texture-editorial.webp",
+      "bytes": 229980,
+      "sha256": "7c64f4524b592e51e86185283c5f6ae1b8802b03cdfef0680709ec3e74963d3c"
+    },
+    {
+      "path": "public/assets/texture-energy.webp",
+      "bytes": 251082,
+      "sha256": "1940c2d1f8689ab00fdb3a68e92e3237044065648eb42e4547228f760b9f96e3"
+    },
+    {
+      "path": "public/assets/texture-grit.webp",
+      "bytes": 421926,
+      "sha256": "dd93cca766fa9db7df967f842758c0025c20eb988d10d2e1d254650fabe3c17e"
+    },
+    {
+      "path": "public/assets/texture-heritage.webp",
+      "bytes": 216218,
+      "sha256": "faeb188c9609f54838755f2e4805ee960c193fe7cfd38b050c5b003de37581a3"
+    },
+    {
+      "path": "public/assets/texture-premium.webp",
+      "bytes": 109004,
+      "sha256": "737aaa4c9b7e39df3c749694804693f76d689672585dc0baf2e30f45cfc76d7d"
+    },
+    {
+      "path": "public/assets/texture-signal.webp",
+      "bytes": 87156,
+      "sha256": "74a6d3e4be658d6d51551af613f4c16c23ddf4b74d9876e86bb8944613462d8f"
+    },
+    {
+      "path": "public/assets/texture-spotlight.webp",
+      "bytes": 58166,
+      "sha256": "a770d0499bd82c258434d91a5b70ef64a70f9ac8d32728b0d8da7601b7edf99b"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+@font-face{font-family:'DejaVu Serif';font-style:normal;font-weight:400 500;src:url('/assets/editorial-serif-regular.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'DejaVu Serif';font-style:normal;font-weight:600 900;src:url('/assets/editorial-serif-bold.woff2') format('woff2');font-display:swap}
+/* Motion belongs to the preview. The template and exported artwork stay static. */
+.poster-motion{--poster-enter:.8s;--poster-ease:cubic-bezier(.16,1,.3,1)}
+.poster-motion .poster-layer{animation:castiq-type-enter var(--poster-enter) var(--poster-ease) both;transform-box:fill-box;transform-origin:center}
+.poster-motion [data-photo-layer]{animation:castiq-image-enter 1.25s var(--poster-ease) both;transform-box:fill-box;transform-origin:center}
+.poster-motion [data-layer-id="crest"],.poster-motion [data-layer-id="club"]{animation-delay:.05s}
+.poster-motion [data-layer-id="label"]{animation-delay:.16s}
+.poster-motion [data-layer-id="score"]{animation-delay:.3s}
+.poster-motion [data-layer-id="opponent"],.poster-motion [data-layer-id="competition"]{animation-delay:.42s}
+.poster-motion [data-layer-id="date"],.poster-motion [data-layer-id="sponsor"]{animation-delay:.52s}
+.poster-motion.poster-family-grit{--poster-enter:.4s;--poster-ease:cubic-bezier(.2,.8,.2,1)}
+.poster-motion.poster-family-energy [data-layer-id="label"],.poster-motion.poster-family-energy [data-layer-id="score"]{animation-name:castiq-energy-enter}
+.poster-motion.poster-family-premium{--poster-enter:1.25s}
+.poster-motion.poster-family-premium .poster-layer{animation-name:castiq-editorial-enter}
+.poster-motion.poster-family-editorial .poster-layer,.poster-motion.poster-family-clean .poster-layer{animation-name:castiq-editorial-enter}
+@keyframes castiq-type-enter{from{opacity:0;translate:0 28px}to{opacity:1;translate:0 0}}
+@keyframes castiq-energy-enter{from{opacity:0;translate:-65px 8px}to{opacity:1;translate:0 0}}
+@keyframes castiq-editorial-enter{from{opacity:0;translate:0 12px}to{opacity:1;translate:0 0}}
+@keyframes castiq-image-enter{from{opacity:0;scale:1.035}to{opacity:1;scale:1}}
+@media(prefers-reduced-motion:reduce){.poster-motion .poster-layer,.poster-motion [data-photo-layer]{animation:none!important;translate:none;scale:none}}

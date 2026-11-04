@@ -1,0 +1,24 @@
+
+> castiq-studio@1.0.0 test
+> node --experimental-strip-types --test tests/v1Workflow.test.ts
+
+✔ only the exact reviewed revision may be queued and published (4.933179ms)
+✔ approval metadata cannot be injected via edit patches and no-op edits retain approval (1.502406ms)
+✔ photo and name preferences gate approval and sanitize frozen public payload (0.567102ms)
+✔ publication is only complete after a channel-specific, explicitly simulated receipt (0.816128ms)
+✔ duplicate clicks and timeout retries preserve a single idempotent request (0.256848ms)
+✔ a future scheduled job cannot confirm early; stale callbacks cannot resurrect edited content (0.905159ms)
+✔ score correction requires a reason, updates dependent revisions, and preserves published history (1.697783ms)
+✔ sponsor evidence is frozen per published revision and persists after edits (0.606912ms)
+✔ legacy prototype publications migrate to explicit demo receipts and old approvals expire (0.356634ms)
+✔ score correction revises scheduled weekend aggregates while retaining unrelated scores and receipts (1.243105ms)
+✔ editing a source photo or name invalidates a derived approved report exactly once (0.988325ms)
+✔ name masking also covers uppercase literal player names and escapes regex punctuation (0.218031ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 180.642712

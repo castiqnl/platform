@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Fictief clubembleem SC Getijde</title>
+  <circle cx="256" cy="256" r="240" fill="#061E27" stroke="#F3F2EA" stroke-width="10"/>
+  <circle cx="256" cy="256" r="217" fill="none" stroke="#19B5A7" stroke-width="4"/>
+  <circle cx="256" cy="256" r="193" fill="none" stroke="#F3F2EA" stroke-opacity=".28" stroke-width="2"/>
+  <path d="M334 170c-23-20-50-29-82-29-69 0-119 50-119 116s50 116 119 116c43 0 79-17 103-49v-68h-99" fill="none" stroke="#F3F2EA" stroke-width="35" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M127 302c62-38 95-40 137-12s71 31 123-5" fill="none" stroke="#19B5A7" stroke-width="19" stroke-linecap="round"/>
+  <path d="M145 330c47-24 82-25 119-4 35 20 73 22 105 6" fill="none" stroke="#F3F2EA" stroke-opacity=".75" stroke-width="5" stroke-linecap="round"/>
+  <path d="M158 92h196M158 420h196" stroke="#19B5A7" stroke-width="4"/>
+  <text x="256" y="462" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="29" font-weight="800" letter-spacing="4" fill="#F3F2EA">SC GETIJDE</text>
+</svg>
