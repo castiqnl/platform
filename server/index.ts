@@ -1,0 +1,11 @@
+import {createServer} from 'node:http';
+import {createManagedPool,closeManagedPool} from './databasePool.ts';
+import {createApplication} from './application.ts';
+if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL ontbreekt. Voer eerst lokale setup uit.');
+const host=process.env.HOST||'127.0.0.1',port=Number(process.env.PORT||4174);
+const pool=createManagedPool({connectionString:process.env.DATABASE_URL,max:10,connectionTimeoutMillis:5000});
+const handler=createApplication({pool,host,uploadDir:process.env.UPLOAD_DIR||'.local/uploads',authMode:(process.env.AUTH_MODE||'supabase') as 'local'|'supabase',appEnv:process.env.APP_ENV,origin:process.env.APP_ORIGIN||'http://127.0.0.1:4173',supabaseUrl:process.env.SUPABASE_URL,supabasePublishableKey:process.env.SUPABASE_PUBLISHABLE_KEY,commit:process.env.RELEASE_SHA,publicationMode:process.env.PUBLICATION_MODE||'sandbox'});
+const server=createServer(handler);server.requestTimeout=30000;server.headersTimeout=10000;
+server.listen(port,host,()=>console.log(`CASTIQ API actief op http://${host}:${port} (${process.env.APP_ENV||'staging'}, uitsluitend sandboxpublicaties)`));
+let closing=false;
+for(const signal of ['SIGTERM','SIGINT'] as const)process.on(signal,()=>{if(closing)return;closing=true;server.close(()=>{void closeManagedPool(pool).then(()=>process.exit(0),()=>process.exit(1));});});

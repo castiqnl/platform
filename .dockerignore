@@ -6,3 +6,6 @@ dist
 .env.*
 *.tar.gz
 *.zip
+.local
+test-results
+playwright-report

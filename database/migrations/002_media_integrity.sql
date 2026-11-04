@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE castiq.media ADD COLUMN IF NOT EXISTS content_sha256 text NOT NULL DEFAULT '';
+COMMIT;

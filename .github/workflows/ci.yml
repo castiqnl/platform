@@ -1,0 +1,59 @@
+name: Castiq local acceptance
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826
+        env:
+          POSTGRES_USER: castiq_ci
+          POSTGRES_PASSWORD: castiq_ci_ephemeral_only
+          POSTGRES_DB: castiq_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U castiq_ci -d castiq_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_ENV: local
+      AUTH_MODE: local
+      HOST: 127.0.0.1
+      PORT: 4174
+      APP_ORIGIN: http://127.0.0.1:4173
+      DATABASE_URL: postgresql://castiq_ci:castiq_ci_ephemeral_only@127.0.0.1:5432/castiq_ci
+      UPLOAD_DIR: .local/uploads
+      PUBLICATION_MODE: sandbox
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install --global npm@11.16.0
+      - run: npm ci
+      - run: npm run config:check
+      - run: npm run check
+      - run: npm test
+      - run: npm run test:server
+      - run: npm run verify:assets
+      - run: npm run build
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: castiq-acceptance-${{ github.sha }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore

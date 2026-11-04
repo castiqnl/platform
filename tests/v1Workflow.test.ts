@@ -83,3 +83,52 @@ test('editing a source photo or name invalidates a derived approved report exact
 test('name masking also covers uppercase literal player names and escapes regex punctuation',()=>{
  const item=content({rawPlayerName:'Robin (Bakker)',namePolicy:'anonymous',title:'ROBIN (BAKKER) SCOORT',caption:'Robin (Bakker) is er. ROBIN (BAKKER)!'});const payload=publicContentPayload(item);assert.equal(payload.title,'Speler SCOORT');assert.equal(payload.caption,'Speler is er. Speler!');
 });
+
+test('public reports keep stricter source preferences and omit internal fields',()=>{
+ const payload=publicContentPayload(content({rawPlayerName:'',namePolicy:'full',title:'ROBIN BAKKER IN BEELD',caption:'Robin Bakker speelt mee.',reportEntries:[{team:'O14-1',caption:'ROBIN BAKKER speelt mee.',rawPlayerName:'Robin Bakker',namePolicy:'anonymous',playerName:'Robin Bakker',image:'/private/photo.webp',photoUsage:'no_photo',photoConsent:'approved',author:'Interne vrijwilliger',snapshot:{rawPlayerName:'Robin Bakker'}}]}));
+ assert.equal(payload.title,'Speler IN BEELD');assert.equal(payload.caption,'Speler speelt mee.');assert.equal(payload.reportEntries[0].caption,'Speler speelt mee.');assert.equal(payload.reportEntries[0].playerName,'Speler');assert.equal(payload.reportEntries[0].image,'');
+ assert.equal('rawPlayerName' in payload.reportEntries[0],false);assert.equal('snapshot' in payload.reportEntries[0],false);assert.equal('author' in payload.reportEntries[0],false);assert.doesNotMatch(JSON.stringify(payload),/Robin Bakker/i);
+ const stricterParent=publicContentPayload(content({namePolicy:'anonymous',reportEntries:[{team:'O14-1',rawPlayerName:'Robin Bakker',namePolicy:'full',caption:'Robin Bakker scoort.'}]}));assert.equal(stricterParent.reportEntries[0].caption,'Speler scoort.');
+});
+
+test('O10 scores are hidden in standalone and composed public payloads while kickoff stays available',()=>{
+ const youth=content({team:'O10-1',title:'Een mooie 3–2',caption:'We speelden 3 – 2.',score:'3–2'}),payload=publicContentPayload(youth);
+ assert.equal(payload.noScore,true);assert.equal(payload.homeScore,undefined);assert.equal(payload.awayScore,undefined);assert.equal(payload.score,undefined);assert.doesNotMatch(payload.title+payload.caption,/3\s*[–-]\s*2/);
+ const entries=[{team:'O10-1',home:'Getijde',away:'Noordhaven',homeScore:3,awayScore:2,score:'3 – 2',caption:'We speelden 3–2.'},{team:'O14-1',home:'Havenlicht',away:'Duinrand',homeScore:3,awayScore:2,score:'3 – 2',caption:'Ook hier 3–2.'}];
+ const report=publicContentPayload(content({type:'Weekenduitslagen',rawPlayerName:'',reportEntries:entries,caption:'Getijde – Noordhaven: 3 – 2\nWe speelden 3–2.\n\nHavenlicht – Duinrand: 3 – 2\nOok hier 3–2.'}));
+ assert.equal(report.reportEntries[0].noScore,true);assert.equal(report.reportEntries[0].score,undefined);assert.equal(report.reportEntries[0].homeScore,undefined);assert.equal(report.reportEntries[1].score,'3 – 2');assert.doesNotMatch(report.caption,/Getijde – Noordhaven: 3|speelden 3/);assert.match(report.caption,/Havenlicht – Duinrand: 3 – 2/);
+ const matchday=publicContentPayload(content({team:'O10-1',type:'Matchday',score:'10:00',caption:'Aftrap om 10:00.'}));assert.equal(matchday.caption,'Aftrap om 10:00.');assert.equal(matchday.homeScore,undefined);
+ assert.equal(publicContentPayload(content({team:'O19-1',publishScores:false})).noScore,true);
+});
+
+test('unapproved photos stay out of previews and result approval rejects incomplete or invalid scores',()=>{
+ assert.equal(publicContentPayload(content({photoConsent:'unknown'})).image,'');
+ for(const homeScore of [undefined,'',-1,1.5,100,NaN])assert.throws(()=>approved({homeScore,scoreConfirmed:true}),/scores|uitslag/);
+ assert.equal(approved({homeScore:0,awayScore:0,scoreConfirmed:true}).status,'approved');
+});
+
+test('source changes invalidate nested reports in one reconciliation regardless of array order',()=>{
+ const source=approved({id:'source'});
+ const derived=(id:string,sourceId:string)=>queuePublication(approved({id,type:'Weekenduitslagen',matchId:'',reportSourceVersions:[{contentId:sourceId,version:1}]}),'Instagram-feed');
+ const inner=derived('inner','source'),outer=derived('outer','inner');
+ const next=reconcileDerivedContent({content:[outer,inner,reviseContent(source,{caption:'Gewijzigd'})],matches:[],v1:{weekendReports:[{contentId:'outer'}]}});
+ for(const report of next.content.slice(0,2)){assert.equal(report.staleDerived,true);assert.equal(report.version,2);assert.equal(report.approvedVersion,undefined);assert.equal(report.jobs[0].status,'cancelled');}
+ assert.equal(next.v1.weekendReports[0].stale,true);assert.equal(reconcileDerivedContent(next),next);
+});
+
+test('withdrawn source photo permission invalidates reports even without a content revision change',()=>{
+ const source={...approved({id:'source'}),photoConsent:'denied'};
+ const report=queuePublication(approved({id:'report',type:'Weekenduitslagen',matchId:'',reportSourceVersions:[{contentId:'source',version:1}]}),'Instagram-feed');
+ const next=reconcileDerivedContent({content:[source,report],matches:[]});assert.equal(next.content[1].staleDerived,true);assert.equal(next.content[1].jobs[0].status,'cancelled');
+});
+
+test('removed or unfinished source matches invalidate an approved result overview',()=>{
+ const report=queuePublication(approved({id:'report',type:'Weekenduitslagen',matchId:'',reportEntries:[{matchId:'m1',homeScore:3,awayScore:2}]}),'Instagram-feed');
+ for(const matches of [[],[{id:'m1',homeScore:3,awayScore:2,status:'cancelled'}]]){const next=reconcileDerivedContent({content:[report],matches});assert.equal(next.content[0].staleDerived,true);assert.equal(next.content[0].jobs[0].status,'cancelled');}
+});
+
+test('sponsor receipt titles use the frozen public name preference',()=>{
+ const original=approved({title:'Robin Bakker scoort',namePolicy:'anonymous',sponsorAgreementId:'sa1'}),queued=queuePublication(original,'Facebook-feed');
+ assert.equal(queued.jobs[0].title,'Speler scoort');assert.equal(queued.jobs[0].payload.title,'Speler scoort');
+ const revised=reviseContent(queued,{title:'Nieuw verhaal',sponsorAgreementId:'sa2'});assert.equal(revised.jobs[0].title,'Speler scoort');assert.equal(revised.jobs[0].payload.sponsorAgreementId,'sa1');
+});

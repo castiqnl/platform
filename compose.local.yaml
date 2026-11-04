@@ -1,0 +1,17 @@
+name: castiq-local
+services:
+  database:
+    image: postgres:17-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826
+    env_file: .local/postgres.env
+    ports:
+      - "127.0.0.1:55439:5432"
+    volumes:
+      - castiq-local-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U castiq_local -d castiq_local"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+volumes:
+  castiq-local-data:

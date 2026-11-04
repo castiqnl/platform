@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+ENV VITE_DATA_MODE=demo
 RUN npm run check && npm test && npm run build
 FROM caddy:2-alpine
 COPY deploy/Caddyfile /etc/caddy/Caddyfile

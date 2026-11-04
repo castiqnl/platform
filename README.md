@@ -1,65 +1,44 @@
-# CASTIQ V1 — werkend prototype en stagingoverdracht
+# Castiq lokale serverversie
 
-Dit pakket bevat het complete werkende React/TypeScript-prototype, alle afbeeldingen en lettertypen, de gebouwde website, domeintests en een concrete opdracht voor Codex om de serverkant op staging af te maken.
-
-**Begin met `CODEX-STARTPROMPT.txt`, daarna `docs/STAGING-SPEC.md`.**
+Castiq draait lokaal met behoud van het aangeleverde React/Vite-ontwerp, alle 50 assets en de 27 standaardstijlen. De mobiele inzending, redactie, clubweek, sponsors en weekendoverzichten gebruiken centrale PostgreSQL-opslag. Kanalen gebruiken uitsluitend een expliciete sandbox; er zijn geen externe berichten geplaatst.
 
 ## Starten
 
-Benodigd: Node.js 24 en npm. Vanuit de projectmap:
+Benodigd: Node 24.18.0, npm 11.16.0 en Docker.
 
 ```bash
 npm ci
-npm run check
-npm test
-npm run build
-npm run preview -- --port 4173
+npm run local:setup
+npm run dev
 ```
 
-Open de URL die Vite toont. De basis-URL toont de marketingwebsite. Gebruik daarna `#/club/dashboard` voor clubbeheer of `#/team/dashboard` voor de mobiele teamomgeving. `#/platform/system` opent de kanaalsimulator. `npm run dev` start de ontwikkelserver.
+Open [de lokale teamomgeving](http://127.0.0.1:4173/#/team/dashboard) of [de clubredactie](http://127.0.0.1:4173/#/club/dashboard) en kies een fictief testaccount. De server bepaalt club en teamrechten. Drie gescheiden fictieve clubs zijn beschikbaar: SC Getijde, FC Havenlicht en SV Noordhaven.
 
-## Wat nu functioneert
+Start in een aparte terminal `npm run worker` om geplande sandboxtaken te verwerken. Een taak blijft onbevestigd totdat een bevoegde redacteur expliciet een sandboxuitkomst vastlegt. Enqueue, export en timeout zijn geen publicatiesucces.
 
-- Mobiele inzending met foto, wedstrijd, uitslag, tekst, naam- en fotovoorkeuren.
-- Lokale concepten, automatische opslag, herstel na heropenen en zichtbare opslagfouten.
-- Centrale redactie: inzenden, feedback, goedkeuring van een exacte versie en revisies.
-- Kanaalwachtrij met planning, expliciete demo-bevestiging, fouten, onbevestigde uitkomsten en gerichte retry.
-- Scorecorrectie met reden, behoud van eerdere bevestigingen en opnieuw beoordelen van gekoppelde versies.
-- Clubweekgenerator met team-/momentselectie en bescherming tegen dubbele concepten.
-- Sponsorafspraken, toegepaste vermeldingen en rapportage op basis van demo-bevestigingen.
-- Samengesteld weekendbericht uit gecontroleerde bronbijdragen.
-- 27 standaardtemplates in primaire/secundaire clubkleur, foto tussen basis en effectlaag, clubmaatwerk door platformbeheer.
-- PNG/SVG-uitvoer vanuit de ontwerpstudio en PNG-uitvoer van de nieuwe bijdragepreview.
+De [afzonderlijke browserdemo](http://127.0.0.1:4173/?demo=1#/demo) bewaart alleen op het apparaat. Daar blijven de historische Studio en beheerpanelen beschikbaar. Serverfouten leiden nooit stil terug naar de demo.
 
-## Grenzen van dit prototype
+## Verificatie
 
-Alle personen, clubs en beelden zijn demonstratiemateriaal. Data wordt op het huidige apparaat bewaard. Rolwissels zijn demonstratiebediening en geen authenticatie of tenantbeveiliging. Kanaalantwoorden zijn herkenbare simulaties: **geen externe socialmedia-account ontvangt een bericht**. Het pakket bevat geen wachtwoorden, API-sleutels, echte OAuth-koppelingen, serverdatabase of daadwerkelijk gedeelde serveropslag.
+```bash
+npm run config:check
+npm run check
+npm test
+npm run test:server
+npm run verify:assets
+npm run build
+npm run test:browser
+npm run local:backup
+```
 
-De frontend is direct uitvoerbaar. De serverauthenticatie, tenantisolatie, uploads, taakverwerking, officiële kanaalautorisaties en echte bevestigingen zijn de volgende stagingbouwfase, beschreven met acceptatiecriteria. Die voorzieningen mogen niet worden vervangen door client-side rolcontroles of optimistische succesmeldingen.
+Server- en pilottests gebruiken eigen tijdelijke databases op localhost. De werkdatabase blijft behouden. Voor browsertests: `npx playwright install chromium`, of stel `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` in. Resultaten, de 52 acceptatiegevallen en beperkingen staan in [VERIFICATIE.md](docs/VERIFICATIE.md).
 
-## Belangrijkste routes
+## Oplevering en vervolgaansluiting
 
-| Route | Werking |
-| --- | --- |
-| `#/club/dashboard` | Clubcockpit en aandachtspunten |
-| `#/team/dashboard` | Mobiel moment aanleveren |
-| `#/club/moderation` | Versie beoordelen |
-| `#/club/content` | Bijdragen en kanaalstatussen |
-| `#/club/calendar` | Publicatieplanning |
-| `#/club/week` | Clubweek voorbereiden |
-| `#/club/sponsors` | Sponsorafspraken en bewijs |
-| `#/club/weekend` | Weekendbericht samenstellen |
-| `#/club/studio` | 27 stijlen en clubmaatwerk |
-| `#/platform/system` | Kanaaluitkomsten simuleren |
+- [Benodigde projectgegevens, accounts, variabelen en secrets](docs/BENODIGDE-GEGEVENS.md)
+- [Projectprofiel](docs/PROJECTPROFIEL.md) en [actuele status](docs/STATUS.md)
+- [Runbook met starten, worker, backup en herstel](docs/RUNBOOK.md)
+- [Architectuur en servergrenzen](docs/ARCHITECTUUR.md)
+- [Oorspronkelijke README](docs/PROTOTYPE-README.md), [validatie](docs/VALIDATION.md) en [stagingdoelspecificatie](docs/STAGING-SPEC.md)
 
-## Bronindeling
-
-`src/v1Workflow.ts` bevat de testbare overgangsregels. `store.tsx` verzorgt de browseropslag. `Editorial.tsx` is de inzend-/redactieflow. `ClubWeek.tsx` bevat clubweek, sponsorafspraken en weekendoverzicht. `V1Workspace.tsx` bevat cockpit, opslagindicatie en operationele kanaalstatussen. Alle bestaande ontwerpen blijven in `Poster.tsx`, `SelectedTemplatePoster.tsx`, `templateCatalog.ts`, `templateAtlas.ts`, `Studio.tsx` en `public/assets/`.
-
-Oudere componenten staan deels nog in `Core.tsx` en `AdminPanels.tsx` als historische bron. De nieuwe hoofdroute gebruikt `Editorial.tsx` en `V1Workspace.tsx`. Bouw een toekomstige serverflow rond het geteste contract; heractiveer geen oudere knop die publicaties direct op `published` zet.
-
-## Staging
-
-`deploy/Dockerfile` en `deploy/Caddyfile` kunnen de statische frontend achter de bestaande afgeschermde staginginfrastructuur serveren. De meegeleverde compose-config bindt uitsluitend op localhost. Dit is geen reeds uitgevoerde VPS-installatie. Gebruik de bestaande stagingrepository, domeinen en deploymethode zodra Codex ze in de doelomgeving aantreft; verander geen productieomgeving en maak de website niet openbaar.
-
-`docs/ASSET-MANIFEST.json` bevat per asset de bestandsgrootte en SHA-256. `docs/VALIDATION.md` legt de uitgevoerde controles en de nog uit te voeren stagingproeven vast. `docs/STAGING-SPEC.md` is het volledige overdrachtsdocument.
+Een externe staging-URL, GitHub-doelrepository, VPS, runners, Supabase-project en officiële kanaalaccounts zijn nog niet geconfigureerd. Productie is ongewijzigd. De OTP/Google-code is voorbereid; echte aanmelding, mailgateway, providerpublicaties, bronimport en externe pilot vragen projectgegevens en aparte verificatie.
