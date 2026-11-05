@@ -1,6 +1,6 @@
 # Castiq lokale verificatie op 4 november 2026
 
-De lokale serverflow is getest met fictieve gegevens en expliciete sandboxkanalen. Dit verslag onderscheidt uitgevoerde lokale proeven van open externe stagingacceptatie. De uitgangscommit is `f9afa122fc2c4c13b703daef19d68c7c5ddd820c`. De oplevercommit is HEAD van `codex/local-staging-foundation` en wordt bij oplevering volledig vermeld.
+De lokale serverflow is getest met fictieve gegevens en expliciete sandboxkanalen. Dit verslag onderscheidt uitgevoerde lokale proeven van open externe stagingacceptatie. De uitgangscommit is `f9afa122fc2c4c13b703daef19d68c7c5ddd820c`. De lokaal geteste implementatiecommit is `70387e392d2cfc739bfbd60e30025c1d68eab52f`. Op 5 november is deze geïntegreerd op `main` van [castiqnl/platform](https://github.com/castiqnl/platform), met behoud van de bestaande GitHub-initialisatie; de integratiewijzigingen betreffen repositorydocumentatie.
 
 ## Omgeving en resultaten
 
@@ -15,8 +15,8 @@ De lokale serverflow is getest met fictieve gegevens en expliciete sandboxkanale
 | Productiebundel | Vite-build geslaagd; lokaal buildbewijs |
 | Backup en restore | Dump hersteld in aparte tijdelijke database; aantallen clubs/bijdragen gelijk; actieve database behouden |
 | Configuratie | Namen/aanwezigheid gevalideerd zonder secretwaarden te tonen |
-| GitHub CI | Workflow voorbereid; nog niet op GitHub uitgevoerd; geen remote vastgesteld |
-| Externe staging | Niet uitgevoerd: host, repository, URL, runners en accounts ontbreken |
+| GitHub CI | Workflow aanwezig; actuele uitvoeringen en commit-SHA staan bij [GitHub Actions](https://github.com/castiqnl/platform/actions) |
+| Externe staging | Niet uitgevoerd: host, URL, runners en accounts ontbreken |
 | Productie en externe posts | Niet gewijzigd respectievelijk niet uitgevoerd |
 
 Toolchain: Node 24.18.0, npm 11.16.0 en PostgreSQL 17 Docker met vastgelegde image-digest. Website: `127.0.0.1:4173`; API: `127.0.0.1:4174`; database: `127.0.0.1:55439`. Migraties `001_workspace.sql` en `002_media_integrity.sql` zijn lokaal toegepast met geregistreerde checksums.

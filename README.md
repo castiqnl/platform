@@ -1,4 +1,4 @@
-# Castiq lokale serverversie
+# Castiq platform
 
 Castiq draait lokaal met behoud van het aangeleverde React/Vite-ontwerp, alle 50 assets en de 27 standaardstijlen. De mobiele inzending, redactie, clubweek, sponsors en weekendoverzichten gebruiken centrale PostgreSQL-opslag. Kanalen gebruiken uitsluitend een expliciete sandbox; er zijn geen externe berichten geplaatst.
 
@@ -41,4 +41,4 @@ Server- en pilottests gebruiken eigen tijdelijke databases op localhost. De werk
 - [Architectuur en servergrenzen](docs/ARCHITECTUUR.md)
 - [Oorspronkelijke README](docs/PROTOTYPE-README.md), [validatie](docs/VALIDATION.md) en [stagingdoelspecificatie](docs/STAGING-SPEC.md)
 
-Een externe staging-URL, GitHub-doelrepository, VPS, runners, Supabase-project en officiële kanaalaccounts zijn nog niet geconfigureerd. Productie is ongewijzigd. De OTP/Google-code is voorbereid; echte aanmelding, mailgateway, providerpublicaties, bronimport en externe pilot vragen projectgegevens en aparte verificatie.
+De broncode staat in [castiqnl/platform](https://github.com/castiqnl/platform), met `main` als integratiebranch. Een externe staging-URL, VPS, runners, Supabase-project en officiële kanaalaccounts zijn nog niet geconfigureerd. Productie is ongewijzigd. De OTP/Google-code is voorbereid; echte aanmelding, mailgateway, providerpublicaties, bronimport en externe pilot vragen projectgegevens en aparte verificatie.

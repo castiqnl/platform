@@ -6,7 +6,7 @@ De lokale bouw gebruikt fictieve accounts en een eigen database. Voor afgescherm
 
 | Gegeven | Wat aan te leveren of vast te stellen |
 | --- | --- |
-| GitHub | Exacte `owner/repository`, toegang voor review/CI, branchbescherming en integratiebranch `main` |
+| GitHub | Repository vastgesteld: `castiqnl/platform`, integratiebranch `main`. Branchbescherming en release-environments nog inrichten volgens de afgesproken werkwijze |
 | Development | VPS-host, SSH-toegang of bestaande beheerroute, Linux-gebruiker en checkoutpad |
 | Staging | Afgeschermde URL, site-ID, host, releasepaden, API-procesbeheer, uploadvolume en proxyconfiguratie |
 | Productie | URL en site-ID ter identificatie; productie valt buiten deze lokale opdracht |
