@@ -1,6 +1,6 @@
 # Castiq lokaal starten en herstellen
 
-Deze werkwijze start de Castiq-serverflow op het eigen apparaat met fictieve pilotgegevens. De premium website en de afzonderlijke browserdemo blijven beschikbaar. Er is geen externe staginghost geconfigureerd.
+Deze werkwijze start de Castiq-serverflow lokaal met fictieve pilotgegevens. Voor de voorbereide, nog niet geactiveerde VPS-route zie [DG-RELEASE.md](DG-RELEASE.md) en [DG-VPS-08-HOST.md](DG-VPS-08-HOST.md).
 
 ## Eerste keer starten
 
@@ -60,7 +60,7 @@ Bewaar oude receipts, audit en onbekende kanaaluitkomsten. Controleer compatibil
 
 ## Afgeschermde staging aansluiten
 
-Zie `BENODIGDE-GEGEVENS.md` voor accounts, variabelen en projectgegevens. De repository is `https://github.com/castiqnl/platform.git`, met `main` als integratiebranch en `origin/main` als upstream. Stel de VPS, runners, site-ID, Caddy en het daadwerkelijke `dg-site-deploy`-contract nog vast. Gebruik dezelfde volledige broncommit voor staging en latere productie; de runtime- en buildconfiguratie blijven omgevingsspecifiek.
+Zie [BENODIGDE-GEGEVENS.md](BENODIGDE-GEGEVENS.md) voor accounts en configuratie. De repository is `castiqnl/platform`, met `main` als integratiebranch. De eigen staginginrichting en runner op `dg-vps-08` zijn voorbereid. De vier publieke variabelen, Supabase, databaseconfiguratie, domein en toegang moeten nog worden ingevuld en geverifieerd. De exacte handmatige bouw-, activatie- en herstelroute staat in [DG-RELEASE.md](DG-RELEASE.md).
 
 Gebruik buiten lokaal `AUTH_MODE=supabase`; fixture-auth weigert een andere omgeving of publieke bindinterface. De Supabase-verificatieadapter controleert de identiteit op de Auth-server en haalt rechten uit de eigen membershiptabel. De OTP/Google-aanmeldschermen, PKCE-callback en sessieherstel zijn voorbereid. Stel de publieke buildvariabelen en servervariabelen voor hetzelfde project in en configureer de bestaande mailgateway. Verifieer echte aanmelding, verversing en afmelden op de doelomgeving. Zet Google pas aan na juiste providerconfiguratie. De code vraagt voor OTP geen automatische nieuwe gebruikers aan; beheerders wijzen eerst accounts en clubrechten toe.
 
@@ -68,4 +68,4 @@ Het schema `castiq` is privé en krijgt geen `anon`/`authenticated`-toegang. Geb
 
 De meegeleverde `compose.yaml`/Caddy-container is uitsluitend de expliciete statische browserdemo (`VITE_DATA_MODE=demo`). `compose.local.yaml` beheert de lokale database voor de volledige serverflow. Geen van beide is bewijs van een VPS-installatie.
 
-GitHub CI is voorbereid in `.github/workflows/ci.yml`. Er is geen deployworkflow met verzonnen runnerlabels, hostnamen of site-ID's toegevoegd. De actuele CI-uitvoeringen zijn te volgen via [GitHub Actions](https://github.com/castiqnl/platform/actions). Controleer groene CI op de exacte releasecommit vóór een deployment; de daadwerkelijke stagingacceptatie moet nog op diezelfde SHA plaatsvinden.
+GitHub CI staat in `.github/workflows/ci.yml`. De twee aanvullende workflows bouwen uitsluitend na een handmatige opdracht vanaf `main` een kandidaat of activeren afzonderlijk een gecontroleerde kandidaat. Pushes en PR's activeren geen omgeving. Controleer groene CI op de exacte releasecommit; de echte stagingacceptatie moet daarna op diezelfde SHA plaatsvinden.

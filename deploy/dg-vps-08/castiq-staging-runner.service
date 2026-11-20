@@ -1,0 +1,39 @@
+[Unit]
+Description=Castiq repository runner on dg-vps-08
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/var/lib/castiq-runner/actions-runner/.runner
+
+[Service]
+Type=simple
+User=castiq-runner
+Group=castiq-runner
+WorkingDirectory=/var/lib/castiq-runner/actions-runner
+Environment=PATH=/opt/castiq/node-v24.18.0-linux-x64/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/var/lib/castiq-runner/actions-runner/run.sh
+Restart=on-failure
+RestartSec=10
+KillMode=control-group
+TimeoutStopSec=60
+UMask=0077
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/castiq-runner
+ReadWritePaths=/srv/castiq-staging /etc/castiq-staging /var/lib/castiq-build /run/lock/dg-build.lock
+IPAddressDeny=127.0.0.1/32 ::1/128 ::ffff:127.0.0.1/128
+MemoryMax=1G
+CPUQuota=100%
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

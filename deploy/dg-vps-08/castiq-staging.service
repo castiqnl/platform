@@ -1,0 +1,47 @@
+[Unit]
+Description=Castiq staging web/API (manual activation only)
+After=network-online.target
+Wants=network-online.target
+ConditionPathIsSymbolicLink=/srv/castiq-staging/current
+ConditionPathExists=/srv/castiq-staging/current/.runtime.env
+
+[Service]
+Type=simple
+User=castiq-app
+Group=castiq-app
+WorkingDirectory=/srv/castiq-staging/current
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=4184
+Environment=STATIC_DIR=/srv/castiq-staging/current/dist
+Environment=UPLOAD_DIR=/srv/castiq-staging/shared/uploads
+EnvironmentFile=/srv/castiq-staging/current/.runtime.env
+ExecStart=/opt/castiq/node-v24.18.0-linux-x64/bin/node /srv/castiq-staging/current/server/index.ts
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=127.0.0.1/32 ::1/128 ::ffff:127.0.0.1/128
+ReadWritePaths=/srv/castiq-staging/shared/uploads
+MemoryMax=2G
+CPUQuota=200%
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

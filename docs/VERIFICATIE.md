@@ -1,4 +1,28 @@
-# Castiq lokale verificatie op 4 november 2026
+# Castiq verificatie
+
+## Deploymentvoorbereiding op 20 november 2026
+
+Uitgangscommit: `9061381596cb2c647504461726fceb2148b192fb`; reviewbranch `codex/dg-vps-08-staging-preparation`. De oplevercommit staat bij de bijbehorende GitHub-review. Node `24.18.0` en npm `11.16.0` zijn expliciet geselecteerd; de standaard development-runtime is inmiddels nieuwer en is niet het releasecontract.
+
+| Controle | Resultaat |
+|---|---|
+| `npm run check` | Geslaagd, browser en server |
+| `npm test` | 25 geslaagd |
+| `npm run test:release` | 23 Node- en 28 Python-tests geslaagd, zonder skips |
+| `npm run test:server` | 18 geslaagd inclusief weekendsimulatie met drie fictieve clubs |
+| `npm run test:browser` | Vier Chromium-flows geslaagd, inclusief mobiel/tweede apparaat, offline herstel en O10/templates |
+| `npm run verify:assets` | 50 originele hashes kloppen; 27 templates behouden |
+| Shell/workflows | ShellCheck, bashsyntax en YAML/Python-codeblokken gecontroleerd |
+| VPS-configuratie | Systemd-validatie, pending Caddy-parsing, eigen rechten en netwerkisolatie werkelijk gecontroleerd |
+| Bestaande VPS-omgeving | Caddy-PID/configuratiehash/default HTTP200 ongewijzigd; geen publieke Castiq-route |
+| Doelkandidaat | Niet gebouwd; vier publieke waarden en goedgekeurde main-SHA met nieuwe CI ontbreken |
+| Activatie | Niet uitgevoerd; app/worker inactive, `current` afwezig |
+
+De beveiligingstests behandelen CI-provenance, volledige SHA/branch, ontbrekende en geskipte checks, retries/races, archiefpaden, tokenisolatie, hardlinks/symlinks, configuratiebinding, locks en herstel bij geforceerde fouten tijdens activatie/rollback. De serviceacties in die fouttests zijn gemockt; er is geen live release of rollback uitgevoerd.
+
+De nieuwe runtime serveert de gebouwde frontend en de geautoriseerde API samen. `/api/readiness` controleert migratiechecksums, uploadrechten en frontendaanwezigheid; echte login en externe publicatie blijven afzonderlijke acceptaties. De schone build en exacte oplever-SHA worden bij oplevering vastgelegd. De volledige hostmeting staat in [DG-VPS-08-HOST.md](DG-VPS-08-HOST.md), de latere opdrachten in [DG-RELEASE.md](DG-RELEASE.md).
+
+## Historische lokale verificatie op 4 november 2026
 
 De lokale serverflow is getest met fictieve gegevens en expliciete sandboxkanalen. Dit verslag onderscheidt uitgevoerde lokale proeven van open externe stagingacceptatie. De uitgangscommit is `f9afa122fc2c4c13b703daef19d68c7c5ddd820c`. De lokaal geteste implementatiecommit is `70387e392d2cfc739bfbd60e30025c1d68eab52f`. Op 5 november is deze geïntegreerd op `main` van [castiqnl/platform](https://github.com/castiqnl/platform), met behoud van de bestaande GitHub-initialisatie; de integratiewijzigingen betreffen repositorydocumentatie.
 

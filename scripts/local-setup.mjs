@@ -10,7 +10,7 @@ if (!await exists('.env.local')) {
   if(await exists('.local/postgres.env')) throw new Error('Bestaande lokale databaseconfiguratie gevonden. Herstel .env.local uit je lokale backup; er wordt geen wachtwoord vervangen.');
   const password=randomBytes(32).toString('hex');
   await writeFile('.local/postgres.env', `POSTGRES_USER=castiq_local\nPOSTGRES_DB=castiq_local\nPOSTGRES_PASSWORD=${password}\n`, {mode:0o600,flag:'wx'});
-  await writeFile('.env.local', `APP_ENV=local\nAUTH_MODE=local\nHOST=127.0.0.1\nPORT=4174\nAPP_ORIGIN=http://127.0.0.1:4173\nDATABASE_URL=postgresql://castiq_local:${password}@127.0.0.1:55439/castiq_local\nUPLOAD_DIR=.local/uploads\nPUBLICATION_MODE=sandbox\n`, {mode:0o600,flag:'wx'});
+  await writeFile('.env.local', `APP_ENV=local\nAUTH_MODE=local\nHOST=127.0.0.1\nPORT=4174\nCASTIQ_APP_ORIGIN=http://127.0.0.1:4173\nCASTIQ_DATA_MODE=server\nDATABASE_URL=postgresql://castiq_local:${password}@127.0.0.1:55439/castiq_local\nUPLOAD_DIR=.local/uploads\nPUBLICATION_MODE=sandbox\n`, {mode:0o600,flag:'wx'});
 } else {
   const config=await readFile('.env.local','utf8');
   if(!/^APP_ENV=local$/m.test(config)||!/^AUTH_MODE=local$/m.test(config)||!/@127\.0\.0\.1:55439\/castiq_local$/m.test(config)) throw new Error('local:setup is uitsluitend voor de eigen lokale database. Bestaande configuratie blijft behouden.');

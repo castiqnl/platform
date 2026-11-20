@@ -1,0 +1,19 @@
+# Inactive template: kept outside /etc/caddy/sites; no hostname has been approved.
+# Replace the placeholder only after an origin/domain and DNS destination are verified.
+# Install as a new own site fragment, validate the whole Caddyfile, then reload
+# solely during the separately authorized first activation.
+CASTIQ_STAGING_HOSTNAME_REQUIRES_VERIFICATION {
+    encode zstd gzip
+    header {
+        X-Robots-Tag "noindex, nofollow, noarchive"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "same-origin"
+    }
+    # Staging access protection must be configured before public routing.
+    # DNS, TLS, access controls and actual login must be verified at activation.
+    reverse_proxy 127.0.0.1:4184 {
+        transport http {
+            local_address 127.0.0.2
+        }
+    }
+}

@@ -6,7 +6,7 @@ import sharp, {type Metadata} from 'sharp';
 import type pg from 'pg';
 import {fixtureAccounts,type Actor} from './fixtures.ts';
 import {ApiError,bad,deny,conflict,mutate,project,persistHistory,mayReadSharedSponsorMedia} from './workflow.ts';
-export type ApplicationOptions={pool:pg.Pool;uploadDir:string;authMode:'local'|'supabase';appEnv?:string;host?:string;origin?:string;supabaseUrl?:string;supabasePublishableKey?:string;commit?:string;publicationMode?:string};
+export type ApplicationOptions={pool:pg.Pool;uploadDir:string;authMode:'local'|'supabase';appEnv?:string;host?:string;origin?:string;supabaseUrl?:string;supabasePublishableKey?:string;commit?:string;publicationMode?:string;readiness?:()=>Promise<boolean>};
 const loopback=(host:string)=>['127.0.0.1','localhost','::1','::ffff:127.0.0.1'].includes(host);
 const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
 const cookieName='castiq_session';
@@ -42,6 +42,7 @@ export function createApplication(options:ApplicationOptions){
    const key=req.socket.remoteAddress||'unknown',time=Date.now();let rate=requests.get(key);if(!rate||rate.until<time){rate={n:0,until:time+60000};requests.set(key,rate);}if(++rate.n>240)throw new ApiError(429,'Te veel verzoeken. Wacht even en probeer opnieuw.','rate_limit');if(requests.size>10000)for(const [id,value] of requests)if(value.until<time)requests.delete(id);
    if(!['GET','HEAD'].includes(method)&&req.headers.origin&&req.headers.origin!==origin)deny('Het verzoek komt niet van de ingestelde Castiq-omgeving.');
    if(url.pathname==='/api/health'&&method==='GET'){await pool.query('SELECT 1');send(res,200,{status:'ok',environment:options.appEnv||'staging',publicationMode:'sandbox-only',authMode:options.authMode,commit:options.commit||null});return;}
+   if(url.pathname==='/api/readiness'&&method==='GET'){const ready=options.readiness?await options.readiness():false;send(res,ready?200:503,{status:ready?'ready':'not_ready',commit:options.commit||null});return;}
    const actor=await auth(req);
    if(url.pathname==='/api/session'){
     if(method==='GET'){send(res,200,{actor,accounts:local?fixtureAccounts:[],environment:options.appEnv||'staging',authMode:options.authMode});return;}

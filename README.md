@@ -16,7 +16,7 @@ Open [de lokale teamomgeving](http://127.0.0.1:4173/#/team/dashboard) of [de clu
 
 Start in een aparte terminal `npm run worker` om geplande sandboxtaken te verwerken. Een taak blijft onbevestigd totdat een bevoegde redacteur expliciet een sandboxuitkomst vastlegt. Enqueue, export en timeout zijn geen publicatiesucces.
 
-De [afzonderlijke browserdemo](http://127.0.0.1:4173/?demo=1#/demo) bewaart alleen op het apparaat. Daar blijven de historische Studio en beheerpanelen beschikbaar. Serverfouten leiden nooit stil terug naar de demo.
+De [afzonderlijke browserdemo](http://127.0.0.1:4173/?demo=1#/demo) bewaart tijdens lokale ontwikkeling alleen op het apparaat. Daar blijven de historische Studio en beheerpanelen beschikbaar. Serverfouten leiden nooit stil terug naar de demo.
 
 ## Verificatie
 
@@ -24,6 +24,7 @@ De [afzonderlijke browserdemo](http://127.0.0.1:4173/?demo=1#/demo) bewaart alle
 npm run config:check
 npm run check
 npm test
+npm run test:release
 npm run test:server
 npm run verify:assets
 npm run build
@@ -35,10 +36,14 @@ Server- en pilottests gebruiken eigen tijdelijke databases op localhost. De werk
 
 ## Oplevering en vervolgaansluiting
 
+- [DG-releaseprocedure: kandidaat, latere activatie en rollback](docs/DG-RELEASE.md)
+- [Geverifieerde voorbereiding van dg-vps-08](docs/DG-VPS-08-HOST.md)
 - [Benodigde projectgegevens, accounts, variabelen en secrets](docs/BENODIGDE-GEGEVENS.md)
 - [Projectprofiel](docs/PROJECTPROFIEL.md) en [actuele status](docs/STATUS.md)
 - [Runbook met starten, worker, backup en herstel](docs/RUNBOOK.md)
 - [Architectuur en servergrenzen](docs/ARCHITECTUUR.md)
 - [Oorspronkelijke README](docs/PROTOTYPE-README.md), [validatie](docs/VALIDATION.md) en [stagingdoelspecificatie](docs/STAGING-SPEC.md)
 
-De broncode staat in [castiqnl/platform](https://github.com/castiqnl/platform), met `main` als integratiebranch. Een externe staging-URL, VPS, runners, Supabase-project en officiële kanaalaccounts zijn nog niet geconfigureerd. Productie is ongewijzigd. De OTP/Google-code is voorbereid; echte aanmelding, mailgateway, providerpublicaties, bronimport en externe pilot vragen projectgegevens en aparte verificatie.
+De broncode staat in [castiqnl/platform](https://github.com/castiqnl/platform), met `main` als integratiebranch. Op 20 november 2026 is het nieuwe stagingdoel op `dg-vps-08` voorbereid met eigen accounts, paden, Node/npm en een geregistreerde repo-eigen runner. De kandidaatbuild en activatie zijn afzonderlijke handmatige routes. App en sandboxwerker zijn inactive; er is geen doelkandidaat, `current`-verwijzing of publieke Castiq-route. Productie is ongewijzigd.
+
+De enige GitHub-variabelen zijn `CASTIQ_APP_ORIGIN`, `CASTIQ_DATA_MODE`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` en `NEXT_PUBLIC_SUPABASE_URL`; Vite neemt deze expliciet over. Database- en migratiegeheimen blijven in private hostconfiguratie. Het bedoelde Supabase-project, de afgeschermde HTTPS-origin, echte login/mail en externe pilot moeten nog worden aangesloten en geverifieerd. De eerste activatie volgt alleen op een aparte opdracht.

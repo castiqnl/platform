@@ -42,6 +42,7 @@ jobs:
       - run: npm run config:check
       - run: npm run check
       - run: npm test
+      - run: npm run test:release
       - run: npm run test:server
       - run: npm run verify:assets
       - run: npm run build
