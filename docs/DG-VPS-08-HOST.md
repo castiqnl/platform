@@ -79,7 +79,11 @@ Er zijn nog geen doelruntimegeheimen, databaseverbinding of Supabase-projectgege
 
 ## Herhaalbare voorbereiding
 
-Inspecteer de scripts en bindende hostidentiteit eerst. Kopieer uitsluitend `deploy/dg-vps-08/` naar een eigen root-owned provisionmap; voer daar als beheerder uit:
+De definitieve releasegrens is afzonderlijk geïnstalleerd vanuit broncommit `02d3618fcc3b0f60a440da1d799b2c802a4165a2`. `/usr/local/libexec/castiq-staging-release` is `root:root 0755`, SHA256 `70f8c7cfe72b45197bc8ab8f743854465222daffbbe4bd0f2c12c39ee428d21e`. De vaste gate, configuratievalidator en healthcheck staan root-owned onder `/usr/local/libexec/castiq-staging/`; niet-geheime versiegegevens staan root-only in `/etc/castiq-staging/release-boundary.json`.
+
+`/etc/sudoers.d/castiq-staging-release` beperkt uitsluitend `castiq-runner` tot die helper met gepinde digest en vaste `build`-/`activate`-argumentpatronen. `visudo`-validatie slaagde. Een vertrouwde proef onder dezelfde runnerrechten bevestigde dat de helper draait en onvolledige invoer weigert, terwijl algemene sudo en runnerrollback geweigerd worden. Deze proef bouwde of activeerde niets. De initiële installer weigert afwijkende bestaande bestanden; toekomstige policywijzigingen vragen afzonderlijke rootreview en een bijpassende digest, geen automatische update vanuit kandidaatcode.
+
+Inspecteer de scripts en bindende hostidentiteit eerst. De bootstrap hieronder is voor een nieuw, inactief doel en weigert de inmiddels actieve eigen runner. Herhaal hem daarom niet op deze voorbereide host. Voor een nieuwe equivalente host moet ook de hostbinding opnieuw worden vastgesteld. Kopieer `deploy/dg-vps-08/` naar een eigen root-owned provisionmap; voor de afzonderlijke boundary-installer zijn tevens de drie benoemde bestanden uit `scripts/` nodig met dezelfde repositorydirectorystructuur. Voer de initiële bootstrap als beheerder uit:
 
 ```bash
 bash -n bootstrap-host.sh

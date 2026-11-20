@@ -12,6 +12,8 @@ Uitgangscommit: `9061381596cb2c647504461726fceb2148b192fb`; reviewbranch `codex/
 | `npm run test:server` | 18 geslaagd inclusief weekendsimulatie met drie fictieve clubs |
 | `npm run test:browser` | Vier Chromium-flows geslaagd, inclusief mobiel/tweede apparaat, offline herstel en O10/templates |
 | `npm run verify:assets` | 50 originele hashes kloppen; 27 templates behouden |
+| Schone aparte checkout | `02d3618fcc3b0f60a440da1d799b2c802a4165a2`; `npm ci --ignore-scripts`, alle bovenstaande tests en stagingconfiguratiecontrole/build geslaagd met expliciete publieke `.invalid`-testwaarden |
+| Productiestart lokaal | Na `npm prune --omit=dev --ignore-scripts`: frontend200, health en readiness met dezelfde volledige SHA, afgeschermde API401 en `.env`404; eigen proefproces gestopt |
 | Shell/workflows | ShellCheck, bashsyntax en YAML/Python-codeblokken gecontroleerd |
 | VPS-configuratie | Systemd-validatie, pending Caddy-parsing, eigen rechten en netwerkisolatie werkelijk gecontroleerd |
 | Bestaande VPS-omgeving | Caddy-PID/configuratiehash/default HTTP200 ongewijzigd; geen publieke Castiq-route |
@@ -20,7 +22,7 @@ Uitgangscommit: `9061381596cb2c647504461726fceb2148b192fb`; reviewbranch `codex/
 
 De beveiligingstests behandelen CI-provenance, volledige SHA/branch, ontbrekende en geskipte checks, retries/races, archiefpaden, tokenisolatie, hardlinks/symlinks, configuratiebinding, locks en herstel bij geforceerde fouten tijdens activatie/rollback. De serviceacties in die fouttests zijn gemockt; er is geen live release of rollback uitgevoerd.
 
-De nieuwe runtime serveert de gebouwde frontend en de geautoriseerde API samen. `/api/readiness` controleert migratiechecksums, uploadrechten en frontendaanwezigheid; echte login en externe publicatie blijven afzonderlijke acceptaties. De schone build en exacte oplever-SHA worden bij oplevering vastgelegd. De volledige hostmeting staat in [DG-VPS-08-HOST.md](DG-VPS-08-HOST.md), de latere opdrachten in [DG-RELEASE.md](DG-RELEASE.md).
+De nieuwe runtime serveert de gebouwde frontend en de geautoriseerde API samen. `/api/readiness` controleert migratiechecksums, uploadrechten en frontendaanwezigheid; echte login en externe publicatie blijven afzonderlijke acceptaties. De schone checkout gebruikte uitsluitend fictieve lokale PostgreSQL-/uploadgegevens en een expliciet ongeldig publiek bouwprofiel; er is geen echt Supabase-project of kanaal aangeroepen. Deze lokale testwaarden zijn geen doelconfiguratie. De volledige hostmeting staat in [DG-VPS-08-HOST.md](DG-VPS-08-HOST.md), de latere opdrachten in [DG-RELEASE.md](DG-RELEASE.md).
 
 ## Historische lokale verificatie op 4 november 2026
 
