@@ -1,0 +1,3 @@
+
+# Preserve supplied legal-source bytes for provenance SHA-256.
+docs/legal/sources/* -text
