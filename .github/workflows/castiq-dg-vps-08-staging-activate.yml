@@ -1,8 +1,14 @@
-name: Castiq dg-vps-08 staging activate
-run-name: Castiq staging activate ${{ inputs.sha }}
+name: Castiq dg-vps-08 activate
+run-name: Castiq ${{ inputs.environment }} activate ${{ inputs.sha }}
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: Isolated target environment
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
       sha:
         description: Full approved SHA of the existing candidate
         required: true
@@ -19,15 +25,17 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  group: castiq-dg-vps-08-staging-activation
+  group: castiq-dg-vps-08-${{ inputs.environment }}-activation
   cancel-in-progress: false
 jobs:
   admission:
     if: github.ref == 'refs/heads/main'
+    environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       TARGET_SHA: ${{ inputs.sha }}
+      TARGET_ENVIRONMENT: ${{ inputs.environment }}
       CASTIQ_APP_ORIGIN: ${{ vars.CASTIQ_APP_ORIGIN }}
       CASTIQ_DATA_MODE: ${{ vars.CASTIQ_DATA_MODE }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
@@ -45,16 +53,17 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          node scripts/check-config.mjs --scope=build --target=staging
+          node scripts/check-config.mjs --scope=build --target="$TARGET_ENVIRONMENT"
           CONFIG_ID=$(node --input-type=module -e 'import{createHash}from"node:crypto";import{publicConfigurationNames}from"./scripts/configuration.mjs";console.log(createHash("sha256").update(JSON.stringify(Object.fromEntries([...publicConfigurationNames].sort().map(k=>[k,process.env[k]])))).digest("hex"))')
-          node scripts/release-gate.mjs --action activate --sha "$TARGET_SHA" --config-id "$CONFIG_ID"
+          node scripts/release-gate.mjs --action activate --environment "$TARGET_ENVIRONMENT" --sha "$TARGET_SHA" --config-id "$CONFIG_ID"
   activate:
     needs: admission
-    environment: castiq-dg-vps-08-staging
-    runs-on: [self-hosted, Linux, X64, castiq, dg-vps-08, staging, castiq-staging]
+    environment: ${{ inputs.environment }}
+    runs-on: [self-hosted, Linux, X64, "castiq-vps08-${{ inputs.environment }}"]
     timeout-minutes: 10
     env:
       TARGET_SHA: ${{ inputs.sha }}
+      TARGET_ENVIRONMENT: ${{ inputs.environment }}
       CANDIDATE_ID: ${{ inputs.candidate_id }}
       RUNTIME_CONFIG_ID: ${{ inputs.runtime_config_id }}
       CASTIQ_APP_ORIGIN: ${{ vars.CASTIQ_APP_ORIGIN }}
@@ -68,13 +77,14 @@ jobs:
         run: |
           set -euo pipefail
           test "$(hostname -s)" = dg-vps-08
-          test "$(id -un)" = castiq-runner
-          test "$RUNNER_NAME" = dg-vps-08-castiq-staging
+          if [ "$TARGET_ENVIRONMENT" = staging ]; then EXPECTED_USER=run-cas-v08-stg; else EXPECTED_USER=run-cas-v08-prd; fi
+          test "$(id -un)" = "$EXPECTED_USER"
+          test "$RUNNER_NAME" = "dg-vps-08-castiq-vps08-$TARGET_ENVIRONMENT"
           python3 - <<'PY'
           import json,os,subprocess
           public=['CASTIQ_APP_ORIGIN','CASTIQ_DATA_MODE','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','NEXT_PUBLIC_SUPABASE_URL']
           context=['GITHUB_REPOSITORY','GITHUB_REPOSITORY_ID','GITHUB_EVENT_NAME','GITHUB_REF','GITHUB_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT']
           payload=json.dumps({'token':os.environ['GITHUB_TOKEN'],'configuration':{k:os.environ[k] for k in public},'context':{k:os.environ[k] for k in context}}).encode()
-          command=['sudo','-n','/usr/local/libexec/castiq-staging-release','activate',os.environ['TARGET_SHA'],os.environ['GITHUB_RUN_ID']+'-'+os.environ['GITHUB_RUN_ATTEMPT'],os.environ['CANDIDATE_ID'],os.environ['RUNTIME_CONFIG_ID']]
+          command=['sudo','-n','/usr/local/libexec/castiq-vps08-'+os.environ['TARGET_ENVIRONMENT']+'/release.py','activate',os.environ['TARGET_SHA'],os.environ['GITHUB_RUN_ID']+'-'+os.environ['GITHUB_RUN_ATTEMPT'],os.environ['CANDIDATE_ID'],os.environ['RUNTIME_CONFIG_ID']]
           raise SystemExit(subprocess.run(command,input=payload).returncode)
           PY

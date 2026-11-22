@@ -12,7 +12,7 @@ export const RELEASE_POLICY = Object.freeze({
     id: 407607093,
     name: 'Castiq local acceptance',
     path: '.github/workflows/ci.yml',
-    sourceSha256: 'ad49893634cfa254413be813157c692a506fb5b93c6dbd0e6730cb3b3f5ae331',
+    sourceSha256: 'ee11b80363745c0b7368c646e16bc71756df946350394e00e0fa056579b2143f',
     job: 'verify',
     steps: Object.freeze([
       'Run npm ci',
@@ -22,6 +22,7 @@ export const RELEASE_POLICY = Object.freeze({
       'Run npm run test:release',
       'Run npm run test:server',
       'Run npm run verify:assets',
+      'Run npm run verify:legal',
       'Run npm run build',
       'Run npm run db:migrate',
       'Run npm run db:seed',
@@ -31,11 +32,11 @@ export const RELEASE_POLICY = Object.freeze({
   }),
   dispatch: Object.freeze({
     build: Object.freeze({
-      name: 'Castiq dg-vps-08 staging candidate',
+      name: 'Castiq dg-vps-08 candidate',
       path: '.github/workflows/castiq-dg-vps-08-staging-build.yml',
     }),
     activate: Object.freeze({
-      name: 'Castiq dg-vps-08 staging activate',
+      name: 'Castiq dg-vps-08 activate',
       path: '.github/workflows/castiq-dg-vps-08-staging-activate.yml',
     }),
   }),
@@ -128,7 +129,8 @@ async function requireAncestor(api, sha, mainSha) {
  * Read-only admission. The API function is injected so the full policy can be
  * exercised without a GitHub account, runner, database, or external side effect.
  */
-export async function admitRelease({ sha, configId, action, context, api }) {
+export async function admitRelease({ sha, configId, action, environment, context, api }) {
+  requireCondition(['staging','production'].includes(environment), 'explicit-target-environment-required');
   requireCondition(fullSha(sha), 'full-lowercase-commit-sha-required');
   requireCondition(typeof configId === 'string' && /^[a-f0-9]{64}$/.test(configId), 'invalid-config-id');
   requireCondition(Object.hasOwn(RELEASE_POLICY.dispatch, action), 'unsupported-action');
@@ -161,7 +163,7 @@ export async function admitRelease({ sha, configId, action, context, api }) {
     && requestRun.conclusion === null, 'dispatch-run-not-current');
   // run-name is derived only from workflow inputs. Unlike runner-provided
   // environment variables, GitHub's stored display_title binds the requested SHA.
-  requireCondition(requestRun.display_title === `Castiq staging ${action} ${sha}`, 'dispatch-input-sha-mismatch');
+  requireCondition(requestRun.display_title === `Castiq ${environment} ${action} ${sha}`, 'dispatch-input-sha-mismatch');
 
   const ciWorkflow = await api(`${prefix}/actions/workflows/ci.yml`);
   requireCondition(workflowMatches(ciWorkflow, RELEASE_POLICY.ci), 'ci-workflow-mismatch');
@@ -204,7 +206,7 @@ export async function admitRelease({ sha, configId, action, context, api }) {
   requireCondition(runMatches(finalRequest, dispatchWorkflow, 'workflow_dispatch', context.GITHUB_SHA)
     && finalRequest.id === requestRunId && finalRequest.run_attempt === requestRunAttempt
     && finalRequest.status === 'in_progress' && finalRequest.conclusion === null
-    && finalRequest.display_title === `Castiq staging ${action} ${sha}`, 'dispatch-run-not-current');
+    && finalRequest.display_title === `Castiq ${environment} ${action} ${sha}`, 'dispatch-run-not-current');
   const finalMain = await api(`${prefix}/branches/${RELEASE_POLICY.branch}`);
   requireCondition(finalMain?.name === RELEASE_POLICY.branch && fullSha(finalMain.commit?.sha), 'invalid-main-reference');
   await requireAncestor(api, sha, finalMain.commit.sha);
@@ -214,6 +216,7 @@ export async function admitRelease({ sha, configId, action, context, api }) {
     sha,
     configId,
     action,
+    environment,
     ciRunId: ciRun.id,
     ciRunAttempt: ciRun.run_attempt,
     requestRunId,
@@ -260,7 +263,7 @@ async function main() {
   requireCondition(args.length > 0 && args.length % 2 === 0, 'expected-sha-config-id-action-output-options');
   for (let index = 0; index < args.length; index += 2) {
     const key = args[index];
-    requireCondition(['--sha', '--config-id', '--action', '--output'].includes(key)
+    requireCondition(['--sha', '--config-id', '--action', '--environment', '--output'].includes(key)
       && !Object.hasOwn(options, key) && typeof args[index + 1] === 'string', 'invalid-command-options');
     options[key] = args[index + 1];
   }
@@ -268,6 +271,7 @@ async function main() {
     sha: options['--sha'],
     configId: options['--config-id'],
     action: options['--action'],
+    environment: options['--environment'],
     context: process.env,
     api: createGitHubApi(process.env.GITHUB_TOKEN),
   });

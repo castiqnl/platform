@@ -21,11 +21,12 @@ release = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(release)
 PUBLIC = {
     'CASTIQ_APP_ORIGIN': 'https://fixture.castiq.invalid',
-    'CASTIQ_DATA_MODE': 'server',
+    'CASTIQ_DATA_MODE': 'supabase',
     'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY': 'sb_publishable_fixture_only',
     'NEXT_PUBLIC_SUPABASE_URL': 'https://fixture.supabase.invalid',
 }
 
+PRIVATE = {'DATABASE_URL': 'postgresql://fixture:new-private-password@fixture.invalid/castiq', 'MAIL_ENCRYPTION_KEY': 'a' * 64, 'PRIVACY_LEDGER_HMAC_KEY': 'b' * 64, 'SUPABASE_ACCOUNT_OPERATIONS_KEY': 'c' * 64}
 
 def archive(path, members):
     with tarfile.open(path, 'w') as output:
@@ -56,12 +57,15 @@ def root_owned_stat(function):
 
 class ReleaseBoundaryTests(unittest.TestCase):
     def setUp(self):
+        release.select_environment('staging')
         self.temporary = tempfile.TemporaryDirectory(prefix='castiq-release-test-')
         self.base = Path(self.temporary.name)
         self.addCleanup(self.temporary.cleanup)
 
     @contextlib.contextmanager
-    def transaction(self, existing=True, worker=True, on_lock=None):
+    def transaction(self, existing=True, worker=True, on_lock=None, environment='staging'):
+        release.select_environment(environment)
+        site_id = release.SITE_ID
         site = self.base / 'transaction-site'
         config = self.base / 'transaction-config'
         for path in [site / 'candidates', site / 'releases', site / 'locks', config / 'runtime.d', config / 'releases.d']:
@@ -70,16 +74,18 @@ class ReleaseBoundaryTests(unittest.TestCase):
         candidate_id, runtime_id = 'candidate-100-1', 'runtime1'
         candidate = site / 'candidates' / candidate_id
         candidate.mkdir()
-        metadata = {'candidateId': candidate_id, 'sha': sha, 'configId': release.fingerprint(PUBLIC), 'runId': '100-1'}
+        (candidate / 'artifact/server').mkdir(parents=True)
+        (candidate / 'artifact/server/index.ts').write_text('fixture application')
+        metadata = {'candidateId': candidate_id, 'sha': sha, 'configId': release.fingerprint(PUBLIC), 'runId': '100-1', 'environment': environment, 'siteId': site_id, 'databaseCompatibility': 'castiq-schema-v8'}
         (candidate / 'release.json').write_text(json.dumps(metadata))
         old, older = site / 'releases/old-release', site / 'releases/older-release'
         for path, version in [(old, old_sha), (older, older_sha)]:
             path.mkdir()
-            (path / 'pair.json').write_text(json.dumps({'sha': version, 'runtimeConfigId': path.name}))
+            (path / 'pair.json').write_text(json.dumps({'sha': version, 'runtimeConfigId': path.name, 'databaseCompatibility': 'castiq-schema-v8'}))
             (path / 'healthy.json').write_text(json.dumps({'sha': version}))
             runtime_file = config / 'releases.d' / (path.name + '.env')
             runtime_file.write_text('DATABASE_URL="fixture-' + path.name + '"\n')
-            (path / '.runtime.env').symlink_to(runtime_file)
+            (path / 'runtime.env').symlink_to(runtime_file)
         if existing:
             (site / 'current').symlink_to(old)
             (site / 'previous').symlink_to(older)
@@ -87,13 +93,13 @@ class ReleaseBoundaryTests(unittest.TestCase):
         fixture = types.SimpleNamespace(site=site, config=config, sha=sha, old_sha=old_sha, older_sha=older_sha,
             old=old, older=older, candidate=candidate, runtime_id=runtime_id, candidate_id=candidate_id,
             new=site / 'releases' / (candidate_id + '-' + runtime_id), state=state, stdout=io.StringIO())
-        fixture.unit_contents = {'castiq-staging.service': b'fixture isolated app unit', 'castiq-staging-worker.service': b'fixture isolated worker unit'}
+        fixture.unit_contents = {site_id + '.service': b'fixture isolated app unit', site_id + '-worker.service': b'fixture isolated worker unit'}
         fixture.isolation = {'app_isolated': True, 'proxy_source': '127.0.0.2',
-            'app_unit_sha256': release.hashlib.sha256(fixture.unit_contents['castiq-staging.service']).hexdigest(),
-            'worker_unit_sha256': release.hashlib.sha256(fixture.unit_contents['castiq-staging-worker.service']).hexdigest()}
+            'app_unit_sha256': release.hashlib.sha256(fixture.unit_contents[release.SITE_ID + '.service']).hexdigest(),
+            'worker_unit_sha256': release.hashlib.sha256(fixture.unit_contents[release.SITE_ID + '-worker.service']).hexdigest()}
         prerequisites = {key: True for key in ['database_migrated_and_compatible', 'encrypted_backup_restore_verified', 'private_access_verified', 'control_plane_isolation_verified']}
         prerequisites.update({'runtime_config_id': runtime_id, 'sha': sha})
-        profile = {**PUBLIC, 'DATABASE_URL': 'postgresql://fixture:new-private-password@fixture.invalid/castiq'}
+        profile = {**PUBLIC, **PRIVATE}
 
         def private_config(path):
             if path == config / 'control-plane-isolation.verified':
@@ -112,15 +118,15 @@ class ReleaseBoundaryTests(unittest.TestCase):
         def command(parts, **options):
             parts = [str(part) for part in parts]
             if parts[0] == '/usr/bin/systemctl':
-                self.assertIn(parts[-1], ['castiq-staging.service', 'castiq-staging-worker.service'])
-                if parts[-1] == 'castiq-staging-worker.service':
+                self.assertIn(parts[-1], [site_id + '.service', site_id + '-worker.service'])
+                if parts[-1] == site_id + '-worker.service':
                     state.worker = parts[1] in ('start', 'restart')
                 else:
                     state.app = parts[1] in ('start', 'restart')
 
         @contextlib.contextmanager
         def transaction_lock(path, **options):
-            self.assertEqual(path, site / 'locks/activation.lock')
+            self.assertEqual(path, config / 'activation.lock')
             self.assertFalse(state.locked)
             state.locked = True
             try:
@@ -155,31 +161,58 @@ class ReleaseBoundaryTests(unittest.TestCase):
         self.assertFalse((fixture.site / '.current-next').is_symlink())
         self.assertFalse((fixture.site / '.previous-next').is_symlink())
 
-    def test_activation_success_commits_app_and_runtime_pair_and_preserves_worker_state(self):
+    def test_activation_success_commits_native_artifact_runtime_pair_and_starts_worker(self):
         for worker in [True, False]:
             with self.subTest(worker=worker), tempfile.TemporaryDirectory(dir=self.base) as temporary:
                 original_base, self.base = self.base, Path(temporary)
                 try:
                     with self.transaction(worker=worker) as fixture:
-                        old_environment = (fixture.old / '.runtime.env').read_text()
+                        old_environment = (fixture.old / 'runtime.env').read_text()
                         fixture.activate()
                         self.assertEqual((fixture.site / 'current').resolve(), fixture.new)
                         self.assertEqual((fixture.site / 'previous').resolve(), fixture.old)
-                        self.assertEqual(fixture.state.worker, worker)
+                        self.assertTrue(fixture.state.worker)
                         pair = json.loads((fixture.new / 'pair.json').read_text())
                         self.assertEqual(pair['sha'], fixture.sha)
+                        self.assertEqual((fixture.new / 'artifact/server/index.ts').read_text(), 'fixture application')
                         self.assertEqual(pair['runtimeConfigId'], fixture.runtime_id)
-                        self.assertEqual((fixture.new / '.runtime.env').resolve(), fixture.config / 'releases.d' / (fixture.new.name + '.env'))
-                        self.assertIn('new-private-password', (fixture.new / '.runtime.env').read_text())
+                        self.assertEqual((fixture.new / 'runtime.env').resolve(), fixture.config / 'releases.d' / (fixture.new.name + '.env'))
+                        self.assertIn('new-private-password', (fixture.new / 'runtime.env').read_text())
                         self.assertNotIn('new-private-password', (fixture.new / 'pair.json').read_text() + fixture.stdout.getvalue())
-                        self.assertEqual((fixture.old / '.runtime.env').read_text(), old_environment)
+                        self.assertEqual((fixture.old / 'runtime.env').read_text(), old_environment)
                         self.assertFalse(json.loads((fixture.new / 'healthy.json').read_text())['publicAcceptance'])
                 finally:
                     self.base = original_base
 
+    def test_production_activation_uses_its_own_units_and_pairs_configuration(self):
+        with self.transaction(environment='production', worker=False) as fixture:
+            fixture.activate()
+            pair = json.loads((fixture.new / 'pair.json').read_text())
+            self.assertEqual(pair['siteId'], 'castiq-vps08-production')
+            self.assertEqual(pair['environment'], 'production')
+            runtime = (fixture.new / 'runtime.env').read_text()
+            self.assertIn('APP_ENV="production"', runtime)
+            self.assertIn('PORT="4185"', runtime)
+            self.assertIn('PRIVACY_RETENTION_EXECUTE="false"', runtime)
+            self.assertTrue(fixture.state.worker)
+            service_calls = [call.args[0] for call in fixture.run.call_args_list if str(call.args[0][0]) == '/usr/bin/systemctl']
+            self.assertTrue(service_calls)
+            self.assertTrue(all(call[-1].startswith('castiq-vps08-production') for call in service_calls))
+
+    def test_activation_refuses_another_environment_before_services_or_release_writes(self):
+        with self.transaction() as fixture:
+            metadata = json.loads((fixture.candidate / 'release.json').read_text())
+            metadata.update(environment='production', siteId='castiq-vps08-production')
+            (fixture.candidate / 'release.json').write_text(json.dumps(metadata))
+            with self.assertRaisesRegex(ValueError, 'another environment'):
+                fixture.activate()
+            fixture.run.assert_not_called()
+            self.assertFalse(fixture.new.exists())
+            self.assert_restored(fixture)
+
     def test_activation_refuses_changed_unit_after_isolation_verification_before_any_mutation(self):
         with self.transaction() as fixture:
-            fixture.unit_contents['castiq-staging.service'] += b'\nchanged after verification'
+            fixture.unit_contents[release.SITE_ID + '.service'] += b'\nchanged after verification'
             with self.assertRaisesRegex(ValueError, 'isolation configuration changed'):
                 fixture.activate()
             fixture.run.assert_not_called()
@@ -248,7 +281,7 @@ class ReleaseBoundaryTests(unittest.TestCase):
             self.assertFalse(fixture.state.app)
             self.assertFalse(fixture.state.worker)
             self.assertTrue(fixture.new.is_dir())
-            self.assertTrue((fixture.new / '.runtime.env').is_symlink())
+            self.assertTrue((fixture.new / 'runtime.env').is_symlink())
             self.assertFalse((fixture.new / 'healthy.json').exists())
             self.assertTrue((fixture.old / 'pair.json').exists())
 
@@ -283,15 +316,34 @@ class ReleaseBoundaryTests(unittest.TestCase):
 
     def test_rollback_success_swaps_previous_and_preserves_each_runtime_pair(self):
         with self.transaction() as fixture:
-            old_runtime = (fixture.old / '.runtime.env').resolve()
-            older_runtime = (fixture.older / '.runtime.env').resolve()
+            old_runtime = (fixture.old / 'runtime.env').resolve()
+            older_runtime = (fixture.older / 'runtime.env').resolve()
             release.rollback(fixture.older.name)
             self.assertEqual((fixture.site / 'current').resolve(), fixture.older)
             self.assertEqual((fixture.site / 'previous').resolve(), fixture.old)
-            self.assertEqual((fixture.old / '.runtime.env').resolve(), old_runtime)
-            self.assertEqual((fixture.older / '.runtime.env').resolve(), older_runtime)
+            self.assertEqual((fixture.old / 'runtime.env').resolve(), old_runtime)
+            self.assertEqual((fixture.older / 'runtime.env').resolve(), older_runtime)
             self.assertTrue(fixture.state.worker)
             fixture.healthy.assert_called_once_with(fixture.older_sha)
+
+    def test_rollback_refuses_database_compatibility_change_without_service_mutation(self):
+        with self.transaction() as fixture:
+            pair = json.loads((fixture.older / 'pair.json').read_text())
+            pair['databaseCompatibility'] = 'castiq-schema-v5'
+            (fixture.older / 'pair.json').write_text(json.dumps(pair))
+            with self.assertRaisesRegex(ValueError, 'database compatibility'):
+                release.rollback(fixture.older.name)
+            fixture.run.assert_not_called()
+            self.assert_restored(fixture)
+
+    def test_rollback_preserves_the_independent_privacy_ledger(self):
+        with self.transaction() as fixture:
+            ledger = fixture.site / 'shared/privacy-ledger/deletions.json'
+            ledger.parent.mkdir(parents=True)
+            ledger.write_text('{"fixture_deleted_subject_hmac":"opaque"}')
+            before = ledger.read_bytes()
+            release.rollback(fixture.older.name)
+            self.assertEqual(ledger.read_bytes(), before)
 
     def test_failed_rollback_restores_original_pair_and_worker(self):
         with self.transaction() as fixture:
@@ -460,8 +512,8 @@ class ReleaseBoundaryTests(unittest.TestCase):
             self.assertNotEqual(first, release.fingerprint({**PUBLIC, name: PUBLIC[name] + '-changed'}))
 
     def test_runtime_pair_requires_exact_public_fingerprint_and_fixed_staging_policy(self):
-        metadata = {'sha': 'a' * 40, 'configId': release.fingerprint(PUBLIC)}
-        profile = {**PUBLIC, 'DATABASE_URL': 'postgresql://fixture:fixture@127.0.0.1/fixture'}
+        metadata = {'sha': 'a' * 40, 'configId': release.fingerprint(PUBLIC), 'environment': 'staging', 'siteId': 'castiq-vps08-staging'}
+        profile = {**PUBLIC, **PRIVATE}
         runtime = release.runtime_environment(profile, metadata)
         self.assertEqual(runtime['RELEASE_SHA'], metadata['sha'])
         self.assertEqual(runtime['APP_ENV'], 'staging')
@@ -469,6 +521,7 @@ class ReleaseBoundaryTests(unittest.TestCase):
         self.assertEqual(runtime['HOST'], '127.0.0.1')
         self.assertEqual(runtime['PUBLICATION_MODE'], 'sandbox')
         self.assertNotIn('DATABASE_URL', metadata)
+        self.assertEqual(runtime['PRIVACY_RETENTION_EXECUTE'], 'false')
         for patch in [{**profile, 'CASTIQ_DATA_MODE': 'demo'}, {**profile, 'UNAPPROVED_KEY': 'value'}, {key: value for key, value in profile.items() if key != 'DATABASE_URL'}]:
             with self.assertRaises(ValueError):
                 release.runtime_environment(patch, metadata)
@@ -476,6 +529,27 @@ class ReleaseBoundaryTests(unittest.TestCase):
             with self.assertRaises(ValueError) as error:
                 release.runtime_environment({**profile, 'DATABASE_URL': value}, metadata)
             self.assertNotIn('fixture', str(error.exception))
+        for name in ['MAIL_ENCRYPTION_KEY', 'PRIVACY_LEDGER_HMAC_KEY', 'SUPABASE_ACCOUNT_OPERATIONS_KEY']:
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                release.runtime_environment({**profile, name: 'not-a-real-random-key'}, metadata)
+        with self.assertRaises(ValueError):
+            release.runtime_environment({**profile, 'PRIVACY_RETENTION_EXECUTE': 'enabled'}, metadata)
+
+    def test_native_environment_mapping_is_fixed_and_separate(self):
+        for environment, suffix, port in [('staging', 'stg', 4184), ('production', 'prd', 4185)]:
+            release.select_environment(environment)
+            site = 'castiq-vps08-' + environment
+            self.assertEqual(release.SITE, Path('/srv/sites') / site)
+            self.assertEqual(release.CONFIG, Path('/etc/dg-webservices') / site)
+            self.assertEqual(release.TRUSTED, Path('/usr/local/libexec') / site)
+            self.assertEqual(release.BUILD_ROOT, Path('/var/lib/dg-build') / site)
+            self.assertEqual(release.APP_USER, 'app-cas-v08-' + suffix)
+            self.assertEqual(release.BUILD_USER, 'build-cas-v08-' + suffix)
+            self.assertEqual(release.RUNNER_USER, 'run-cas-v08-' + suffix)
+            self.assertEqual(release.PORT, port)
+        for environment in ['../production', 'development', '', '/tmp/site']:
+            with self.subTest(environment=environment), self.assertRaises(ValueError):
+                release.select_environment(environment)
 
     def test_environment_serialization_round_trips_quotes_backslashes_and_shell_metacharacters(self):
         value = 'postgresql://fixture: spaces "quote" \\ slash $value $(printf expanded) `printf expanded` %n @fixture.invalid/db'

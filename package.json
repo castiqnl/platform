@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build": "node scripts/verify-legal.mjs && vite build",
     "check": "tsc --noEmit && tsc -p tsconfig.server.json",
     "dev": "node scripts/dev.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
@@ -21,7 +21,8 @@
     "verify:assets": "node scripts/verify-assets.mjs",
     "local:backup": "node --env-file=.env.local scripts/local-backup.mjs",
     "worker": "node --env-file-if-exists=.env.local server/worker.ts",
-    "config:check": "node --env-file-if-exists=.env.local scripts/check-config.mjs"
+    "config:check": "node --env-file-if-exists=.env.local scripts/check-config.mjs",
+    "verify:legal": "node scripts/verify-legal.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.118.0",
@@ -30,7 +31,8 @@
     "pg": "8.23.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "svix": "2.11.0"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

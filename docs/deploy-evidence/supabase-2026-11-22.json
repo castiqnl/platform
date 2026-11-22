@@ -1,0 +1,58 @@
+{
+  "date": "2026-11-22",
+  "environments": {
+    "staging": {
+      "supabaseAccount": "Castiq",
+      "projectRef": "zovwrexlzmhyejnfnmid",
+      "origin": "https://staging.castiq.nl",
+      "siteId": "castiq-vps08-staging"
+    },
+    "production": {
+      "supabaseAccount": "Duindorpdoet",
+      "projectRef": "jyqajjfyksasehdlzfuf",
+      "origin": "https://castiq.nl",
+      "siteId": "castiq-vps08-production"
+    }
+  },
+  "dataMode": "supabase",
+  "migrations": {
+    "001_workspace.sql": "ac60345ae60db8c89368d4148c51b2e9234a1a291bd6f414d93edc8c2bcce766",
+    "002_media_integrity.sql": "664c05606d33c33ba9f3fbe02d453d2dd2614b57912b164d57bb3816abf22490",
+    "003_privacy.sql": "d3286cd96b8d04ccc40a32111260a12b548e158aa5079bff4f783ee3054763d2",
+    "004_mail.sql": "765f837863b6953980e14f367f1e4a60177b7ce4555c965693168e7a12a57045",
+    "005_account_operations.sql": "6d007cce9cdb4d21c9173a14a627fdd94852cdd92b20e4d597404d28ec9cc1cd",
+    "006_auth_registration_capture.sql": "2590517b5993b682f598452c5477ce2fe94262ee33f8e0f607e9a2829065e8dc",
+    "007_privacy_hardening.sql": "b2216fdca88a48fa87311af46644ffa2764375f069b479ba094d560a5205a999",
+    "008_database_access_hardening.sql": "5e466924302b0ad465736fa5106a6ff421b940aff9d7069eeec54f498ea93040"
+  },
+  "firstAdministrator": "info@dgwebservices.nl",
+  "administratorAcceptedTerms": false,
+  "serverRole": {
+    "superuser": false,
+    "createRole": false,
+    "createDatabase": false,
+    "bypassRls": false,
+    "authSchemaAccess": false,
+    "operationsKeyAccess": false
+  },
+  "accountOperationsRpc": {
+    "anonExecute": false,
+    "authenticatedExecute": false,
+    "serviceRoleExecute": true,
+    "forgedOperationsKeyHttpStatus": 403
+  },
+  "emailProviderEnabled": true,
+  "googleProviderEnabled": true,
+  "smtpConfiguration": "user-reported; no SMTP secrets read",
+  "supabaseAuthTemplatesApplied": false,
+  "resendApiConfigured": false,
+  "privacyDestructionEnabled": false,
+  "ledgerInitialization": {
+    "emptyScopeVerified": true,
+    "deletionTasksPerEnvironment": 0,
+    "restoreRunsPerEnvironment": 0,
+    "rootOwnedContinuityMarkers": true,
+    "environmentIdsMatchSiteIds": true,
+    "moduleSha256": "3d7fd0c026e65e6a677ef765a3554464ec8bbfd29530d58229d5674de1ebfb07"
+  }
+}

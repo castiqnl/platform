@@ -18,15 +18,30 @@ import urllib.request
 import urllib.error
 import urllib.parse
 
-SITE = Path('/srv/castiq-staging')
-CONFIG = Path('/etc/castiq-staging')
-TRUSTED = Path('/usr/local/libexec/castiq-staging')
-NODE = Path('/opt/castiq/node-v24.18.0-linux-x64/bin/node')
-NPM = NODE.parent.parent / 'lib/node_modules/npm/bin/npm-cli.js'
 PUBLIC = ('CASTIQ_APP_ORIGIN', 'CASTIQ_DATA_MODE', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_SUPABASE_URL')
+PRIVATE = ('DATABASE_URL', 'MAIL_ENCRYPTION_KEY', 'PRIVACY_LEDGER_HMAC_KEY', 'SUPABASE_ACCOUNT_OPERATIONS_KEY')
 MACHINE = '4c306aaa5338d05ce10f127bea80dafaf7e62b1500be34cdff3b5ddd617e7bd7'
 SHA = re.compile(r'[0-9a-f]{40}\Z')
 IDENTIFIER = re.compile(r'[A-Za-z0-9][A-Za-z0-9_-]{0,95}\Z')
+
+def select_environment(environment):
+    """Fixed native host contract; never accept runner-supplied filesystem paths."""
+    if environment not in ('staging', 'production'):
+        raise ValueError('Unknown Castiq environment')
+    global ENVIRONMENT, SITE_ID, SITE, CONFIG, TRUSTED, NODE, NPM, PORT, APP_USER, BUILD_USER, RUNNER_USER, BUILD_ROOT
+    ENVIRONMENT = environment
+    SITE_ID = 'castiq-vps08-' + environment
+    suffix = 'stg' if environment == 'staging' else 'prd'
+    SITE = Path('/srv/sites') / SITE_ID
+    CONFIG = Path('/etc/dg-webservices') / SITE_ID
+    TRUSTED = Path('/usr/local/libexec') / SITE_ID
+    NODE = Path('/opt/dg-toolchains') / SITE_ID / 'node-v24.18.0-linux-x64/bin/node'
+    NPM = NODE.parent.parent / 'lib/node_modules/npm/bin/npm-cli.js'
+    PORT = 4184 if environment == 'staging' else 4185
+    APP_USER, BUILD_USER, RUNNER_USER = (role + '-cas-v08-' + suffix for role in ('app', 'build', 'run'))
+    BUILD_ROOT = Path('/var/lib/dg-build') / SITE_ID
+
+select_environment('staging')
 
 def require(condition, message):
     if not condition:
@@ -140,7 +155,7 @@ def gate(action, sha, run_id, payload, config_id):
     environment.update({key: str(context.get(key, '')) for key in allowed})
     with tempfile.TemporaryDirectory(prefix='castiq-admission-') as temporary:
         output = Path(temporary) / 'admission.json'
-        run([NODE, TRUSTED / 'release-gate.mjs', '--action', action, '--sha', sha, '--config-id', config_id, '--output', output], env=environment)
+        run([NODE, TRUSTED / 'release-gate.mjs', '--action', action, '--environment', ENVIRONMENT, '--sha', sha, '--config-id', config_id, '--output', output], env=environment)
         result = json.loads(output.read_text())
     require(result['sha'] == sha and result['configId'] == config_id, 'Admission mismatch')
     return result
@@ -153,15 +168,15 @@ def build(sha, run_id, payload):
     admission = gate('build', sha, run_id, payload, config_id)
     isolation = private_json(CONFIG / 'control-plane-isolation.verified')
     require(isolation.get('build_and_runner_isolated') is True, 'Build and runner control plane isolation not verified')
-    require(isolation.get('runner_unit_sha256') == hashlib.sha256(Path('/etc/systemd/system/castiq-staging-runner.service').read_bytes()).hexdigest(), 'Runner isolation configuration changed')
+    require(isolation.get('runner_unit_sha256') == hashlib.sha256((Path('/etc/systemd/system') / (SITE_ID + '-runner.service')).read_bytes()).hexdigest(), 'Runner isolation configuration changed')
     require(shutil.disk_usage(SITE).free > 6 * 1024**3, 'Less than 6 GiB free')
     require(os.statvfs(SITE).f_favail > 100000, 'Less than 100000 free inodes')
-    candidate_id = sha[:12] + '-' + run_id
+    candidate_id = sha + '-' + run_id
     destination = SITE / 'candidates' / candidate_id
     require(not destination.exists(), 'Candidate already exists; do not overwrite')
-    builder = pwd.getpwnam('castiq-build')
+    builder = pwd.getpwnam(BUILD_USER)
     with lock('/run/lock/dg-build.lock', shared=True):
-        with tempfile.TemporaryDirectory(prefix='candidate-', dir='/var/lib/castiq-build/work') as temporary:
+        with tempfile.TemporaryDirectory(prefix='candidate-', dir=BUILD_ROOT / 'work') as temporary:
             base = Path(temporary)
             archive = base / 'source.tar'
             fetch_source(sha, payload.get('token', ''), archive)
@@ -179,37 +194,37 @@ def build(sha, run_id, payload):
                 os.chmod(parent, 0o750)
                 for name in files:
                     os.chown(Path(parent) / name, builder.pw_uid, builder.pw_gid)
-            environment = {'PATH': str(NODE.parent) + ':/usr/bin:/bin', 'HOME': str(home), 'NPM_CONFIG_USERCONFIG': '/dev/null', 'APP_ENV': 'staging', **configuration}
+            environment = {'PATH': str(NODE.parent) + ':/usr/bin:/bin', 'HOME': str(home), 'NPM_CONFIG_USERCONFIG': '/dev/null', 'APP_ENV': ENVIRONMENT, **configuration}
             command = ' && '.join([
-                f'{NODE} scripts/check-config.mjs --scope=build --target=staging',
+                f'{NODE} scripts/check-config.mjs --scope=build --target={ENVIRONMENT}',
                 f'{NODE} {NPM} ci --ignore-scripts',
                 f'{NODE} {NPM} run check', f'{NODE} {NPM} test',
                 f'{NODE} {NPM} run verify:assets', f'{NODE} {NPM} run build',
                 f'{NODE} {NPM} prune --omit=dev --ignore-scripts',
             ])
-            unit = 'castiq-build-' + run_id
+            unit = SITE_ID + '-build-' + run_id
             run(['/usr/bin/systemd-run', '--quiet', '--wait', '--pipe', '--collect', '--service-type=exec', '--unit=' + unit,
-                 '--uid=castiq-build', '--gid=castiq-build', '--working-directory=' + str(source),
+                 '--uid=' + BUILD_USER, '--gid=' + BUILD_USER, '--working-directory=' + str(source),
                  '-p', 'NoNewPrivileges=yes', '-p', 'PrivateTmp=yes', '-p', 'ProtectSystem=strict', '-p', 'ProtectHome=yes',
-                 '-p', 'ReadWritePaths=' + str(source) + ' ' + str(home), '-p', 'InaccessiblePaths=/etc/castiq-staging /srv/castiq-staging',
-                 '-p', 'IPAddressDeny=127.0.0.1/32 ::1/128 ::ffff:127.0.0.1/128', '-p', 'MemoryMax=2G', '-p', 'TasksMax=128', '-p', 'RuntimeMaxSec=1200',
+                 '-p', 'ReadWritePaths=' + str(source) + ' ' + str(home), '-p', 'InaccessiblePaths=/etc/dg-webservices /srv/sites',
+                 '-p', 'IPAddressDeny=127.0.0.1/32 ::1/128 ::ffff:127.0.0.1/128', '-p', 'LogNamespace=' + SITE_ID, '-p', 'MemoryMax=2G', '-p', 'TasksMax=128', '-p', 'RuntimeMaxSec=1200',
                  *['--setenv=' + key + '=' + value for key, value in environment.items()], '/bin/sh', '-c', command])
             regular_tree(source)
             staging = SITE / 'candidates' / ('.pending-' + candidate_id)
             require(not staging.exists(), 'Pending candidate exists; inspect manually')
             staging.mkdir(mode=0o700)
             try:
-                for name in ['dist', 'server', 'src', 'database', 'node_modules', 'package.json', 'package-lock.json', '.nvmrc']:
+                artifact = staging / 'artifact'
+                artifact.mkdir()
+                for name in ['dist', 'server', 'src', 'shared', 'emails', 'scripts', 'database', 'node_modules', 'package.json', 'package-lock.json', '.nvmrc']:
                     item = source / name
                     if item.is_dir():
-                        shutil.copytree(item, staging / name, symlinks=False)
+                        shutil.copytree(item, artifact / name, symlinks=False)
                     else:
-                        shutil.copyfile(item, staging / name)
-                (staging / 'scripts').mkdir()
-                shutil.copyfile(source / 'scripts/configuration.mjs', staging / 'scripts/configuration.mjs')
-                metadata = {'candidateId': candidate_id, 'sha': sha, 'configId': config_id, 'runId': run_id, 'node': '24.18.0', 'npm': '11.16.0', 'ci': admission, 'publicationMode': 'sandbox-only'}
+                        shutil.copyfile(item, artifact / name)
+                metadata = {'candidateId': candidate_id, 'sha': sha, 'configId': config_id, 'runId': run_id, 'environment': ENVIRONMENT, 'siteId': SITE_ID, 'node': '24.18.0', 'npm': '11.16.0', 'ci': admission, 'publicationMode': 'sandbox-only', 'databaseCompatibility': 'castiq-schema-v8'}
                 (staging / 'release.json').write_text(json.dumps(metadata, indent=2) + '\n')
-                app = pwd.getpwnam('castiq-app')
+                app = pwd.getpwnam(APP_USER)
                 for parent, directories, files in os.walk(staging):
                     os.chown(parent, 0, app.pw_gid)
                     os.chmod(parent, 0o550)
@@ -225,10 +240,16 @@ def build(sha, run_id, payload):
     print(json.dumps({'candidateId': candidate_id, 'sha': sha, 'configId': config_id, 'activated': False}))
 
 def runtime_environment(profile, metadata):
-    require(set(profile) == {'DATABASE_URL', *PUBLIC}, 'Runtime JSON must contain database URL and exactly four public names')
+    required = {*PRIVATE, *PUBLIC}
+    require(required.issubset(profile) and set(profile).issubset(required | {'PRIVACY_RETENTION_EXECUTE'}), 'Unexpected runtime names or missing private configuration')
     require(all(isinstance(v, str) and not any(c in v for c in '\n\r\0') for v in profile.values()), 'Invalid runtime value')
+    require(profile['DATABASE_URL'].startswith(('postgres://', 'postgresql://')), 'PostgreSQL URL required')
+    for name in ('MAIL_ENCRYPTION_KEY', 'PRIVACY_LEDGER_HMAC_KEY', 'SUPABASE_ACCOUNT_OPERATIONS_KEY'):
+        require(re.fullmatch(r'[a-f0-9]{64}', profile[name]) is not None, 'Runtime key must be 32 random bytes encoded as lowercase hex')
+    require(profile.get('PRIVACY_RETENTION_EXECUTE', 'false') in ('true', 'false'), 'Invalid privacy execution setting')
     require(fingerprint(profile) == metadata['configId'], 'Runtime public configuration differs from candidate')
-    return {**profile, 'APP_ENV': 'staging', 'AUTH_MODE': 'supabase', 'HOST': '127.0.0.1', 'PORT': '4184', 'UPLOAD_DIR': str(SITE / 'shared/uploads'), 'STATIC_DIR': 'dist', 'PUBLICATION_MODE': 'sandbox', 'RELEASE_SHA': metadata['sha']}
+    require(metadata.get('environment') == ENVIRONMENT and metadata.get('siteId') == SITE_ID, 'Candidate belongs to another environment')
+    return {**profile, 'PRIVACY_RETENTION_EXECUTE': profile.get('PRIVACY_RETENTION_EXECUTE', 'false'), 'APP_ENV': ENVIRONMENT, 'AUTH_MODE': 'supabase', 'HOST': '127.0.0.1', 'PORT': str(PORT), 'UPLOAD_DIR': str(SITE / 'shared/uploads'), 'PRIVACY_LEDGER_DIR': str(SITE / 'shared/privacy-ledger'), 'STATIC_DIR': 'dist', 'PUBLICATION_MODE': 'sandbox', 'RELEASE_SHA': metadata['sha']}
 
 def environment_file(environment):
     # systemd EnvironmentFile double-quote rules; never interpolate through a shell.
@@ -248,9 +269,9 @@ def healthy(sha):
     # The runner is denied access to loopback admin ports. Check from a separate,
     # root-controlled unit; no application code or secrets enter that process.
     import uuid
-    run(['/usr/bin/systemd-run', '--quiet', '--wait', '--pipe', '--collect', '--unit=castiq-health-' + uuid.uuid4().hex,
+    run(['/usr/bin/systemd-run', '--quiet', '--wait', '--pipe', '--collect', '--unit=' + SITE_ID + '-health-' + uuid.uuid4().hex,
          '-p', 'NoNewPrivileges=yes', '-p', 'ProtectSystem=strict', '-p', 'ProtectHome=yes', '-p', 'PrivateTmp=yes',
-         '-p', 'RuntimeMaxSec=90', NODE, TRUSTED / 'healthcheck.mjs', sha])
+         '-p', 'LogNamespace=' + SITE_ID, '-p', 'RuntimeMaxSec=90', NODE, TRUSTED / 'healthcheck.mjs', sha, str(PORT)])
 
 def activate(sha, run_id, payload, candidate_id, runtime_id):
     candidate = SITE / 'candidates' / identifier(candidate_id)
@@ -261,7 +282,7 @@ def activate(sha, run_id, payload, candidate_id, runtime_id):
     gate('activate', sha, run_id, payload, metadata['configId'])
     isolation = private_json(CONFIG / 'control-plane-isolation.verified')
     require(isolation.get('app_isolated') is True and isolation.get('proxy_source') == '127.0.0.2', 'App control plane isolation not verified')
-    for name, key in [('castiq-staging.service', 'app_unit_sha256'), ('castiq-staging-worker.service', 'worker_unit_sha256')]:
+    for name, key in [(SITE_ID + '.service', 'app_unit_sha256'), (SITE_ID + '-worker.service', 'worker_unit_sha256')]:
         require(isolation.get(key) == hashlib.sha256((Path('/etc/systemd/system') / name).read_bytes()).hexdigest(), 'App isolation configuration changed')
     profile = private_json(CONFIG / 'runtime.d' / (identifier(runtime_id) + '.json'))
     runtime = runtime_environment(profile, metadata)
@@ -272,7 +293,7 @@ def activate(sha, run_id, payload, candidate_id, runtime_id):
     require(prerequisites.get('runtime_config_id') == runtime_id, 'Readiness config mismatch')
     require(prerequisites.get('sha') == sha, 'Readiness SHA mismatch')
     run([NODE, TRUSTED / 'check-config.mjs'], env={'PATH': str(NODE.parent) + ':/usr/bin:/bin', **runtime})
-    with lock(SITE / 'locks/activation.lock'):
+    with lock(CONFIG / 'activation.lock'):
         release_id = identifier(candidate_id + '-' + runtime_id)
         release = SITE / 'releases' / release_id
         require(not release.exists(), 'Release already exists; choose another reviewed configuration ID')
@@ -280,10 +301,10 @@ def activate(sha, run_id, payload, candidate_id, runtime_id):
         os.chmod(release, 0o750)
         runtime_file = CONFIG / 'releases.d' / (release_id + '.env')
         write_private(runtime_file, environment_file(runtime))
-        (release / '.runtime.env').symlink_to(runtime_file)
+        (release / 'runtime.env').symlink_to(runtime_file)
         pair = {**metadata, 'releaseId': release_id, 'runtimeConfigId': runtime_id, 'activationRunId': run_id}
         (release / 'pair.json').write_text(json.dumps(pair, indent=2) + '\n')
-        app = pwd.getpwnam('castiq-app')
+        app = pwd.getpwnam(APP_USER)
         for parent, directories, files in os.walk(release):
             os.chown(parent, 0, app.pw_gid)
             os.chmod(parent, 0o550)
@@ -297,19 +318,19 @@ def activate(sha, run_id, payload, candidate_id, runtime_id):
         require(not current.exists() or current.is_symlink(), 'Current is not a managed link')
         if previous:
             require(previous.parent == SITE / 'releases' and (previous / 'healthy.json').is_file(), 'Previous release not a healthy managed pair')
+            require(json.loads((previous / 'pair.json').read_text()).get('databaseCompatibility') == metadata.get('databaseCompatibility'), 'Database compatibility differs from current pair')
         old_previous = (SITE / 'previous').resolve(strict=True) if (SITE / 'previous').is_symlink() else None
         require(not (SITE / 'previous').exists() or (SITE / 'previous').is_symlink(), 'Previous is not a managed link')
         if old_previous:
             require(old_previous.parent == SITE / 'releases' and (old_previous / 'healthy.json').is_file(), 'Previous is not a healthy managed pair')
-        worker_active = subprocess.run(['/usr/bin/systemctl', 'is-active', '--quiet', 'castiq-staging-worker.service']).returncode == 0
+        worker_active = subprocess.run(['/usr/bin/systemctl', 'is-active', '--quiet', SITE_ID + '-worker.service']).returncode == 0
         try:
             if worker_active:
-                run(['/usr/bin/systemctl', 'stop', 'castiq-staging-worker.service'])
+                run(['/usr/bin/systemctl', 'stop', SITE_ID + '-worker.service'])
             atomic_link('current', release)
-            run(['/usr/bin/systemctl', 'restart', 'castiq-staging.service'])
+            run(['/usr/bin/systemctl', 'restart', SITE_ID + '.service'])
             healthy(sha)
-            if worker_active:
-                run(['/usr/bin/systemctl', 'start', 'castiq-staging-worker.service'])
+            run(['/usr/bin/systemctl', 'start', SITE_ID + '-worker.service'])
             (release / 'healthy.json').write_text(json.dumps({'sha': sha, 'runtimeConfigId': runtime_id, 'checks': ['loopback-health'], 'publicAcceptance': False}) + '\n')
             os.chmod(release / 'healthy.json', 0o440)
             os.chown(release / 'healthy.json', 0, app.pw_gid)
@@ -317,15 +338,15 @@ def activate(sha, run_id, payload, candidate_id, runtime_id):
                 atomic_link('previous', previous)
         except Exception:
             if worker_active:
-                run(['/usr/bin/systemctl', 'stop', 'castiq-staging-worker.service'])
+                run(['/usr/bin/systemctl', 'stop', SITE_ID + '-worker.service'])
             if previous:
                 atomic_link('current', previous)
-                run(['/usr/bin/systemctl', 'restart', 'castiq-staging.service'])
+                run(['/usr/bin/systemctl', 'restart', SITE_ID + '.service'])
                 healthy(json.loads((previous / 'pair.json').read_text())['sha'])
                 if worker_active:
-                    run(['/usr/bin/systemctl', 'start', 'castiq-staging-worker.service'])
+                    run(['/usr/bin/systemctl', 'start', SITE_ID + '-worker.service'])
             else:
-                run(['/usr/bin/systemctl', 'stop', 'castiq-staging.service'])
+                run(['/usr/bin/systemctl', 'stop', SITE_ID + '.service'])
                 if current.is_symlink() and current.resolve() == release:
                     current.unlink()
             if old_previous:
@@ -339,30 +360,31 @@ def rollback(release_id):
     require(not os.environ.get('SUDO_USER') or os.environ['SUDO_USER'] == 'root', 'Rollback requires separate administrator authorization')
     target = SITE / 'releases' / identifier(release_id)
     require(target.is_dir() and not target.is_symlink() and (target / 'healthy.json').is_file(), 'No healthy release pair')
-    with lock(SITE / 'locks/activation.lock'):
+    with lock(CONFIG / 'activation.lock'):
         require((SITE / 'previous').is_symlink() and (SITE / 'previous').resolve() == target, 'Only the recorded previous healthy pair may be restored')
         require((SITE / 'current').is_symlink(), 'Current is not a managed symlink')
         current = (SITE / 'current').resolve(strict=True)
         require(current.parent == SITE / 'releases' and (current / 'pair.json').is_file() and (current / 'healthy.json').is_file(), 'Current is not a healthy managed pair')
         require(current != target, 'Previous pair already active')
-        worker_active = subprocess.run(['/usr/bin/systemctl', 'is-active', '--quiet', 'castiq-staging-worker.service']).returncode == 0
+        require(json.loads((current / 'pair.json').read_text()).get('databaseCompatibility') == json.loads((target / 'pair.json').read_text()).get('databaseCompatibility'), 'Code rollback crosses database compatibility boundary')
+        worker_active = subprocess.run(['/usr/bin/systemctl', 'is-active', '--quiet', SITE_ID + '-worker.service']).returncode == 0
         try:
             if worker_active:
-                run(['/usr/bin/systemctl', 'stop', 'castiq-staging-worker.service'])
+                run(['/usr/bin/systemctl', 'stop', SITE_ID + '-worker.service'])
             atomic_link('current', target)
-            run(['/usr/bin/systemctl', 'restart', 'castiq-staging.service'])
+            run(['/usr/bin/systemctl', 'restart', SITE_ID + '.service'])
             healthy(json.loads((target / 'pair.json').read_text())['sha'])
             if worker_active:
-                run(['/usr/bin/systemctl', 'start', 'castiq-staging-worker.service'])
+                run(['/usr/bin/systemctl', 'start', SITE_ID + '-worker.service'])
             atomic_link('previous', current)
         except Exception:
             if worker_active:
-                run(['/usr/bin/systemctl', 'stop', 'castiq-staging-worker.service'])
+                run(['/usr/bin/systemctl', 'stop', SITE_ID + '-worker.service'])
             atomic_link('current', current)
-            run(['/usr/bin/systemctl', 'restart', 'castiq-staging.service'])
+            run(['/usr/bin/systemctl', 'restart', SITE_ID + '.service'])
             healthy(json.loads((current / 'pair.json').read_text())['sha'])
             if worker_active:
-                run(['/usr/bin/systemctl', 'start', 'castiq-staging-worker.service'])
+                run(['/usr/bin/systemctl', 'start', SITE_ID + '-worker.service'])
             atomic_link('previous', target)
             raise
     print('Previous app/config pair restored; database and external state unchanged')
@@ -371,6 +393,13 @@ def main():
     os.umask(0o077)
     require(os.geteuid() == 0, 'Root-owned helper requires root')
     require(hashlib.sha256(Path('/etc/machine-id').read_bytes()).hexdigest() == MACHINE, 'Wrong deployment host')
+    installed_site = Path(__file__).resolve().parent.name
+    require(installed_site in ('castiq-vps08-staging', 'castiq-vps08-production'), 'Run the fixed installed environment helper')
+    select_environment(installed_site.removeprefix('castiq-vps08-'))
+    host = private_json(CONFIG / 'host.json')
+    require(host.get('siteId') == SITE_ID and host.get('repository') == 'castiqnl/platform' and host.get('branch') == 'main', 'Unexpected host profile')
+    for name, expected in [('siteRoot', str(SITE)), ('configRoot', str(CONFIG)), ('buildRoot', str(BUILD_ROOT)), ('installRoot', str(TRUSTED)), ('port', PORT), ('node', str(NODE))]:
+        require(host.get(name) == expected, 'Host profile path or port mismatch')
     arguments = sys.argv[1:]
     if len(arguments) == 2 and arguments[0] == 'rollback':
         rollback(arguments[1]); return
@@ -379,7 +408,7 @@ def main():
     require(action in ('build', 'activate') and SHA.fullmatch(sha), 'Invalid action or full SHA')
     require(re.fullmatch(r'[1-9][0-9]*-[1-9][0-9]*', run_id), 'Invalid workflow run ID')
     require((action == 'build' and len(arguments) == 3) or (action == 'activate' and len(arguments) == 5), 'Invalid action arguments')
-    require(os.environ.get('SUDO_USER') in (None, 'root', 'castiq-runner'), 'Wrong caller')
+    require(os.environ.get('SUDO_USER') in (None, 'root', RUNNER_USER), 'Wrong caller')
     raw = sys.stdin.buffer.read(32769)
     require(len(raw) <= 32768, 'Input exceeds limit')
     payload = json.loads(raw)

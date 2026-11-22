@@ -27,6 +27,7 @@ npm test
 npm run test:release
 npm run test:server
 npm run verify:assets
+npm run verify:legal
 npm run build
 npm run test:browser
 npm run local:backup
@@ -44,6 +45,8 @@ Server- en pilottests gebruiken eigen tijdelijke databases op localhost. De werk
 - [Architectuur en servergrenzen](docs/ARCHITECTUUR.md)
 - [Oorspronkelijke README](docs/PROTOTYPE-README.md), [validatie](docs/VALIDATION.md) en [stagingdoelspecificatie](docs/STAGING-SPEC.md)
 
-De broncode staat in [castiqnl/platform](https://github.com/castiqnl/platform), met `main` als integratiebranch. Op 20 november 2026 is het nieuwe stagingdoel op `dg-vps-08` voorbereid met eigen accounts, paden, Node/npm en een geregistreerde repo-eigen runner. De kandidaatbuild en activatie zijn afzonderlijke handmatige routes. App en sandboxwerker zijn inactive; er is geen doelkandidaat, `current`-verwijzing of publieke Castiq-route. Productie is ongewijzigd.
+De broncode staat in [castiqnl/platform](https://github.com/castiqnl/platform), met `main` als integratiebranch. Staging (`staging.castiq.nl`) en productie (`castiq.nl`) hebben elk een eigen Supabase-project, platformbeheerder, runner, serveraccounts, configuratie en releasepad op `dg-vps-08`. De actuele kandidaat-/activatieresultaten en resterende externe controles staan in [STATUS.md](docs/STATUS.md). Productie wordt in deze taak voorbereid; publieke productieactivatie volgt afzonderlijk.
 
-De enige GitHub-variabelen zijn `CASTIQ_APP_ORIGIN`, `CASTIQ_DATA_MODE`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` en `NEXT_PUBLIC_SUPABASE_URL`; Vite neemt deze expliciet over. Database- en migratiegeheimen blijven in private hostconfiguratie. Het bedoelde Supabase-project, de afgeschermde HTTPS-origin, echte login/mail en externe pilot moeten nog worden aangesloten en geverifieerd. De eerste activatie volgt alleen op een aparte opdracht.
+De enige GitHub-variabelen zijn `CASTIQ_APP_ORIGIN`, **`CASTIQ_DATA_MODE=supabase`**, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` en `NEXT_PUBLIC_SUPABASE_URL`, per GitHub environment. Vite neemt deze expliciet over. Database-, account- en mailgeheimen blijven in de private runtime of omgevingsgebonden versleutelde serveropslag.
+
+Aanmelden gebruikt e-mail-OTP van precies zes cijfers of de geconfigureerde Google-provider. Lees [Auth en e-mail instellen](docs/AUTH-EN-MAIL.md), [de 13 Supabase HTML-templates](emails/README.md) en [privacybeheer](docs/PRIVACY-BEHEER.md). Persoonlijke voorwaarden en bevoegde clubaanvaarding blijven gescheiden; de privacyverklaring is informatie, geen verplichte toestemming. De juridische versie is `2026-11-22.1`, ingangsdatum 22 november 2026.

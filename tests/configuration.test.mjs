@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {publicConfigurationNames,resolvePublicConfiguration,validateBuildConfiguration,validateRuntimeConfiguration} from '../scripts/configuration.mjs';
 
-const staging={CASTIQ_APP_ORIGIN:'https://fixture.castiq.invalid',CASTIQ_DATA_MODE:'server',NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_fixture_only',NEXT_PUBLIC_SUPABASE_URL:'https://fixture.supabase.invalid'};
+const staging={CASTIQ_APP_ORIGIN:'https://fixture.castiq.invalid',CASTIQ_DATA_MODE:'supabase',NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_fixture_only',NEXT_PUBLIC_SUPABASE_URL:'https://fixture.supabase.invalid'};
 const runtime={...staging,APP_ENV:'staging',AUTH_MODE:'supabase',HOST:'127.0.0.1',PORT:'44173',DATABASE_URL:'postgresql://fixture:fixture@127.0.0.1:55439/fixture',UPLOAD_DIR:'/var/lib/castiq-fixture/uploads',PUBLICATION_MODE:'sandbox',RELEASE_SHA:'a'.repeat(40)};
 
 test('the public build contract contains exactly the four requested names and needs no runtime secret',()=>{
@@ -31,7 +31,7 @@ test('local legacy aliases remain usable and are never silently preferred over c
 
 test('staging refuses demo mode, HTTP, credentials, URL paths and private or legacy Supabase keys',()=>{
  for(const patch of [
-  {CASTIQ_DATA_MODE:'demo'},{CASTIQ_DATA_MODE:'supabase'},
+  {CASTIQ_DATA_MODE:'demo'},{CASTIQ_DATA_MODE:'server'},
   {CASTIQ_APP_ORIGIN:'http://fixture.castiq.invalid'},{CASTIQ_APP_ORIGIN:'https://fixture.castiq.invalid/path'},
   {CASTIQ_APP_ORIGIN:'https://fixture:password@fixture.castiq.invalid'},
   {NEXT_PUBLIC_SUPABASE_URL:'http://fixture.supabase.invalid'},{NEXT_PUBLIC_SUPABASE_URL:'https://fixture.supabase.invalid/rest/v1'},

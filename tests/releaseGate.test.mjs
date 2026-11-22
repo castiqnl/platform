@@ -14,14 +14,14 @@ const PREFIX = '/repos/castiqnl/platform';
 const SOURCE = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url));
 const REPOSITORY = { id: 1446413160, full_name: 'castiqnl/platform' };
 
-function fixture(action = 'build') {
+function fixture(action = 'build', environment = 'staging') {
   const dispatch = { id: 990, state: 'active', ...RELEASE_POLICY.dispatch[action] };
   const ci = { ...RELEASE_POLICY.ci, state: 'active' };
   const dispatchRun = {
     id: 700, run_attempt: 1, workflow_id: dispatch.id, name: dispatch.name,
     path: dispatch.path, event: 'workflow_dispatch', head_branch: 'main',
     head_sha: WORKFLOW_SHA, repository: REPOSITORY, head_repository: REPOSITORY,
-    status: 'in_progress', conclusion: null, display_title: `Castiq staging ${action} ${SHA}`,
+    status: 'in_progress', conclusion: null, display_title: `Castiq ${environment} ${action} ${SHA}`,
   };
   const ciRun = {
     id: 800, run_attempt: 2, run_number: 4, workflow_id: ci.id, name: ci.name,
@@ -71,7 +71,7 @@ function fixture(action = 'build') {
     GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/main',
     GITHUB_SHA: WORKFLOW_SHA, GITHUB_RUN_ID: '700', GITHUB_RUN_ATTEMPT: '1',
   };
-  const input = { sha: SHA, configId: CONFIG, action, context, api };
+  const input = { sha: SHA, configId: CONFIG, action, environment, context, api };
   return { input, paths, routes, calls, ciRun, dispatchRun };
 }
 
@@ -92,7 +92,7 @@ test('admits exact main SHA with successful latest push CI and binds the manual 
     const f = fixture(action);
     const metadata = await admitRelease(f.input);
     assert.deepEqual(metadata, {
-      repository: 'castiqnl/platform', sha: SHA, configId: CONFIG, action,
+      repository: 'castiqnl/platform', sha: SHA, configId: CONFIG, action, environment: 'staging',
       ciRunId: 800, ciRunAttempt: 2, requestRunId: 700, requestRunAttempt: 1,
     });
     assert.ok(Object.isFrozen(metadata));
@@ -319,4 +319,9 @@ test('GitHub client permits only GET to the configured repository, with sanitize
     globalThis.fetch = originalFetch;
   }
   for (const token of [undefined, '', 'token\nheader']) assert.throws(() => createGitHubApi(token), /github-token-required/);
+});
+
+test('binds production dispatch and refuses environment substitution or missing target', async()=>{
+ const production=fixture('build','production');assert.equal((await admitRelease(production.input)).environment,'production');
+ for(const environment of [undefined,'local','staging']){const f=fixture('build','production');f.input.environment=environment;await refused(f,environment==='staging'?'dispatch-input-sha-mismatch':'explicit-target-environment-required');}
 });

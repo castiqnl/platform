@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Trusted, read-only connectivity probe; run inside an own restricted unit."""
 import json
+import argparse
 import socket
 import sys
 import threading
@@ -8,10 +9,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import urllib.request
 
 checks = {}
-baseline = sys.argv[1:] == ['--baseline']
-serve = sys.argv[1:] == ['--serve']
-if sys.argv[1:] and not baseline and not serve:
-    raise SystemExit('Only --baseline and --serve are supported.')
+parser = argparse.ArgumentParser()
+parser.add_argument('--baseline', action='store_true')
+parser.add_argument('--serve', action='store_true')
+parser.add_argument('--port', type=int, choices=(4184, 4185), default=4184)
+arguments = parser.parse_args()
+baseline, serve = arguments.baseline, arguments.serve
+if baseline and serve:
+    raise SystemExit('Choose a baseline or server probe.')
 addresses = ('127.0.0.1', '::1', '::ffff:127.0.0.1', '0.0.0.0')
 
 if serve:
@@ -27,7 +32,7 @@ if serve:
         def log_message(self, *_):
             pass
 
-    server = ThreadingHTTPServer(('127.0.0.1', 4184), Handler)
+    server = ThreadingHTTPServer(('127.0.0.1', arguments.port), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
 for address in addresses:

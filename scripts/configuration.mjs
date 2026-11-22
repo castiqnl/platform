@@ -24,14 +24,13 @@ export function validateBuildConfiguration(environment,{target=environment.APP_E
  const deployed=['staging','production'].includes(target);
  if(!['local','staging','production'].includes(target))errors.push('target: gebruik local, staging of production');
  if(deployed)for(const name of publicConfigurationNames)if(!value(environment,name))errors.push(`${name}: ontbreekt in het publieke buildcontract`);
- if(!['server','demo'].includes(configuration.CASTIQ_DATA_MODE))errors.push('CASTIQ_DATA_MODE: gebruik server of demo');
- if(deployed&&configuration.CASTIQ_DATA_MODE!=='server')errors.push('CASTIQ_DATA_MODE: staging en productie vereisen server');
+ if(!['server','supabase','demo'].includes(configuration.CASTIQ_DATA_MODE))errors.push('CASTIQ_DATA_MODE: gebruik supabase, server (alleen lokaal) of demo');
+ if(deployed&&configuration.CASTIQ_DATA_MODE!=='supabase')errors.push('CASTIQ_DATA_MODE: staging en productie vereisen supabase');
  if((configuration.CASTIQ_APP_ORIGIN||deployed)&&!exactOrigin(configuration.CASTIQ_APP_ORIGIN,deployed))errors.push('CASTIQ_APP_ORIGIN: exacte HTTP(S)-origin vereist; HTTPS buiten lokaal');
  const url=configuration.NEXT_PUBLIC_SUPABASE_URL,key=configuration.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
  if((url||key||deployed)&&(!url||!key))errors.push('NEXT_PUBLIC_SUPABASE_URL en NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: samen vereist');
  if(url&&!exactOrigin(url,true))errors.push('NEXT_PUBLIC_SUPABASE_URL: exacte HTTPS-origin vereist');
  if(key&&!/^sb_publishable_[A-Za-z0-9_-]+$/.test(key))errors.push('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: uitsluitend een publishable key toegestaan');
- if(environment.VITE_AUTH_GOOGLE_ENABLED&&!['true','false'].includes(environment.VITE_AUTH_GOOGLE_ENABLED))errors.push('VITE_AUTH_GOOGLE_ENABLED: gebruik true of false');
  for(const name of Object.keys(environment))if(/^(VITE_|NEXT_PUBLIC_).*(DATABASE_URL|SERVICE_ROLE|SECRET|ACCESS_TOKEN|REFRESH_TOKEN)/i.test(name))errors.push(`${name}: serversecret onder publieke prefix`);
  return {configuration,errors};
 }

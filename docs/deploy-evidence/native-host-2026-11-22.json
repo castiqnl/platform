@@ -1,0 +1,61 @@
+{
+  "checkedAt": "2026-11-22T21:01:35Z",
+  "host": "dg-vps-08",
+  "scope": "Additive Castiq native host preparation before first application activation",
+  "existingFabelpadPreserved": {
+    "staging": {
+      "pidBefore": 389573,
+      "pidAfter": 389573,
+      "currentBeforeAndAfter": "releases/538c6b719e372f4dca99cfa2bc824cbf6310f5c1-45061896274-1",
+      "loopbackHealth": 200,
+      "httpsHealth": 200
+    },
+    "production": {
+      "pidBefore": 391207,
+      "pidAfter": 391207,
+      "currentBeforeAndAfter": "releases/538c6b719e372f4dca99cfa2bc824cbf6310f5c1-45062081153-1",
+      "loopbackHealth": 200
+    },
+    "caddyPidBeforeAndAfter": 4564,
+    "mainConfigSha256BeforeAndAfter": "3acfe7107fb2f3ec21e3c0292daf2725be21b79c707a41394c848b1ee3aeefab",
+    "fabelpadStagingSiteSha256BeforeAndAfter": "ba6facd1a010dab378eeb170cbaf26b2969c38f4fbfd735269a873280d039acb",
+    "importedSitesBeforeAndAfter": ["fabelpad-vps08-staging.caddy"]
+  },
+  "castiq": {
+    "siteIds": ["castiq-vps08-staging", "castiq-vps08-production"],
+    "siteRootPattern": "/srv/sites/<siteId>",
+    "configRootPattern": "/etc/dg-webservices/<siteId>",
+    "runnerRootPattern": "/opt/actions-runner/<siteId>",
+    "buildRootPattern": "/var/lib/dg-build/<siteId>",
+    "releasePair": ["artifact", "runtime.env", "pair.json"],
+    "ports": [4184, 4185],
+    "portsFreeAfterTrustedProbe": true,
+    "applicationsAndWorkers": "inactive, disabled",
+    "ownRunners": "active, enabled",
+    "candidateCountPerEnvironment": 0,
+    "releaseCountPerEnvironment": 0,
+    "currentExists": false,
+    "proxySitesImported": false,
+    "isolationProbesPassedPerEnvironment": ["runner", "build", "app"],
+    "deniedAdminAddresses": ["127.0.0.1", "::1", "::ffff:127.0.0.1", "0.0.0.0"],
+    "allowedProxySource": "127.0.0.2",
+    "externalHttpsFromRestrictedUnits": true,
+    "independentPrivacyLedger": "shared/privacy-ledger",
+    "privateBackupPath": "shared/backups",
+    "journalNamespaces": ["castiq-vps08-staging", "castiq-vps08-production"],
+    "journalRetentionDays": 30,
+    "ownJournalRetentionTimers": "enabled, active",
+    "installedReleaseHelperSha256": "ed40be2c7f11bd876344e80f9e67830ff6c5c5e193322b9c25f7a1a7b722e196",
+    "sudo": "Exact digest-bound build/activate helper only; general sudo refused for both runner accounts",
+    "releaseHelperTests": "33 offline Python tests passed"
+  },
+  "capacityAfterPreparation": {
+    "freeDiskGiBApproximate": 273,
+    "freeInodes": 19349684
+  },
+  "limitations": [
+    "This is a preparation snapshot, not evidence of an application release.",
+    "No actual Castiq application, database access or runtime configuration was used by the trusted network probes.",
+    "Later activation must separately verify the selected SHA, CI, runtime, database compatibility, backup/restore, access protection and public HTTPS."
+  ]
+}

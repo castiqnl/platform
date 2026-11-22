@@ -1,0 +1,29 @@
+{
+  "terms": {
+    "kind": "terms",
+    "title": "Algemene voorwaarden",
+    "version": "2026-11-22.1",
+    "effectiveDate": "2026-11-22",
+    "sha256": "f079c555cbddc089a2c11dbdcb2673e289fb9e2aebda98c7d0f8d9b63f95be50",
+    "path": "/algemene-voorwaarden",
+    "downloadPath": "/legal/2026-11-22.1/terms.md"
+  },
+  "privacy": {
+    "kind": "privacy",
+    "title": "Privacyverklaring",
+    "version": "2026-11-22.1",
+    "effectiveDate": "2026-11-22",
+    "sha256": "6f7c36f4e97b0e1b19987631b526420b795d4d62e13116d8cf636aabb6e5f9c2",
+    "path": "/privacyverklaring",
+    "downloadPath": "/legal/2026-11-22.1/privacy.md"
+  },
+  "processor": {
+    "kind": "processor",
+    "title": "Verwerkersovereenkomst",
+    "version": "2026-11-22.1",
+    "effectiveDate": "2026-11-22",
+    "sha256": "821f27e0a108513246b0ca9fab424aa3712a922f57878247a6b78a7ef6a0d711",
+    "path": "/verwerkersovereenkomst",
+    "downloadPath": "/legal/2026-11-22.1/processor.md"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "scope": "Own encrypted Castiq application-data backups and actual isolated restores",
+  "date": "2026-11-22",
+  "host": "dg-vps-08",
+  "results": [
+    {"environment":"staging","backupId":"backup-dffb0f81-4f95-4b3e-af64-48c9330be040","restoredTables":31,"restoredRows":13,"allCountsAndDigestsMatched":true,"uploadsAuthenticated":0,"tamperRefused":true},
+    {"environment":"production","backupId":"backup-e7119dbd-66e0-40ac-9f9f-d29851e2380e","restoredTables":31,"restoredRows":13,"allCountsAndDigestsMatched":true,"uploadsAuthenticated":0,"tamperRefused":true}
+  ],
+  "encryption": "AES-256-GCM, distinct per-environment root-only keys outside database",
+  "tls": "verify-full with reviewed Supabase root CA",
+  "sourceSnapshot": "Exported repeatable-read snapshot shared by source counts/digests and pg_dump",
+  "sourcePrivileges": "Own limited server role, read-only transaction, RLS respected and unrestricted SELECT-policy coverage independently verified",
+  "schema": "castiq",
+  "excludedControlPlaneTables": ["castiq.account_operation_keys"],
+  "otherExcludedScopes": ["auth", "public", "runtime secrets", "independent privacy ledger"],
+  "restorePostgres": "17.12 (Debian 17.12-1.pgdg12+1)",
+  "restoreImageDigest": "sha256:8d174ddfb292f26b6ec8d97f55d944ccab547fa8bfe9e4fd3c24afdc819ee423",
+  "restoreIsolation": {"network":"none","dataStorage":"tmpfs","rootFilesystem":"read-only","capabilities":"none","hostMounts":false,"temporaryClustersRemoved":true},
+  "plaintextDumpFilesCreated": false,
+  "keysOrDatabaseCredentialsCopiedOffHost": false,
+  "applicationServiceOrCurrentChanged": false,
+  "productionActivated": false,
+  "providerBackupRetentionVerified": false,
+  "privacyDestructionAuthorizedByThisEvidence": false,
+  "keyEscrowOrOffsiteBackupProvisioned": false,
+  "restoreExpiryDays": 180,
+  "independentLedgerRequiredBeforeRealRestoreRelease": true
+}

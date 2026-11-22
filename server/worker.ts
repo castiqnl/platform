@@ -1,5 +1,14 @@
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
+import {unlink} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {LEGAL_DOCUMENTS} from '../shared/legalDocuments.ts';
+import {createPrivacyService} from './privacy.ts';
+import {createFileDeletionLedger} from './privacyLedger.ts';
+import {createPrivacyOperations} from './privacyOperations.ts';
+import {createAccountOperations} from './accountOperations.ts';
+import {enqueueMail,erasePersonalMail,processMailOutbox} from './mail.ts';
+import {validateRuntimeConfiguration} from '../scripts/configuration.mjs';
 import pg from 'pg';
 import {createManagedPool,closeManagedPool} from './databasePool.ts';
 import {normalizeContent,processPublication,contentPrivacyErrors} from '../src/v1Workflow.ts';
@@ -40,9 +49,16 @@ export async function runSandboxTick(pool:pg.Pool,options:SandboxTickOptions={})
  }catch(error){await finish.query('ROLLBACK');throw error;}finally{finish.release();}
 }
 if(process.argv[1]===fileURLToPath(import.meta.url)){
- if(process.env.PUBLICATION_MODE&&process.env.PUBLICATION_MODE!=='sandbox')throw new Error('Deze worker ondersteunt alleen expliciete sandboxopdrachten.');if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL ontbreekt');
- const pool=createManagedPool({connectionString:process.env.DATABASE_URL,max:3});let stopped=false;
+ const {configuration,errors}=validateRuntimeConfiguration(process.env);if(errors.length)throw new Error(errors.join('\n'));
+ const pool=createManagedPool({connectionString:process.env.DATABASE_URL,max:3,connectionTimeoutMillis:5000});let stopped=false,nextPrivacy=0;
+ const mailOptions={origin:configuration.CASTIQ_APP_ORIGIN,environment:process.env.APP_ENV||'local',encryptionKey:process.env.MAIL_ENCRYPTION_KEY};
+ const accountOperations=createAccountOperations({supabaseUrl:configuration.NEXT_PUBLIC_SUPABASE_URL,key:process.env.SUPABASE_ACCOUNT_OPERATIONS_KEY});
+ const privacy=createPrivacyService({pool,documents:LEGAL_DOCUMENTS,referenceKey:process.env.PRIVACY_LEDGER_HMAC_KEY,ledger:process.env.PRIVACY_LEDGER_DIR?createFileDeletionLedger(process.env.PRIVACY_LEDGER_DIR,{environmentId:process.env.APP_ENV!=='local'?'castiq-vps08-'+process.env.APP_ENV:undefined}):undefined,enqueueMail:(db,mail)=>enqueueMail(db,mail,mailOptions),erasePersonalMail,...accountOperations,deletePrivateMedia:async objectKey=>{if(!/^[a-f0-9]{64}\.webp$/.test(objectKey))throw new Error('invalid_media_reference');await unlink(resolve(process.env.UPLOAD_DIR!,objectKey)).catch(error=>{if(error.code!=='ENOENT')throw error;});}});
+ const operations=createPrivacyOperations(pool);
  for(const signal of ['SIGINT','SIGTERM'] as const)process.on(signal,()=>{stopped=true;});
- console.log('Sandboxworker actief. Geen externe providers; geen automatische publicatiebevestiging.');
- try{while(!stopped){await runSandboxTick(pool);if(!stopped)await new Promise(resolve=>setTimeout(resolve,1000));}}finally{await closeManagedPool(pool);}
+ console.log(JSON.stringify({component:'castiq-worker',publicationMode:'sandbox-only',retentionExecute:process.env.PRIVACY_RETENTION_EXECUTE==='true'}));
+ try{while(!stopped){try{
+  await runSandboxTick(pool);await processMailOutbox(pool,mailOptions);
+  if(Date.now()>=nextPrivacy){await privacy.syncCaseExtensions();const dryRun=process.env.PRIVACY_RETENTION_EXECUTE!=='true';const result=await privacy.retentionTick({dryRun});console.log(JSON.stringify({component:'privacy-retention',...result}));if(!dryRun&&result.destructionEnabled)await operations.purge({dryRun:false});nextPrivacy=Date.now()+60_000;}
+ }catch(error){console.error(JSON.stringify({component:'castiq-worker',code:typeof error?.code==='string'&&/^[a-zA-Z0-9_]{1,60}$/.test(error.code)?error.code:'background_step_failed'}));}if(!stopped)await new Promise(resolve=>setTimeout(resolve,1000));}}finally{await closeManagedPool(pool);}
 }

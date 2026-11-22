@@ -1,3 +1,5 @@
+> Historisch voorbereidingsrapport van 20 november 2026. Voor de nieuwe canonieke staging-/productie-inrichting van 22 november: [DG-RELEASE.md](DG-RELEASE.md), [STATUS.md](STATUS.md) en [hostbewijs](deploy-evidence/native-host-2026-11-22.json).
+
 # Castiq: voorbereiding op dg-vps-08
 
 Gecontroleerd op 20 november 2026. Dit beschrijft uitgevoerde hostvoorbereiding en afzonderlijk de nog niet uitgevoerde ingebruikname. De applicatie en publicatiewerker zijn niet gestart; er bestaat geen `current`-verwijzing, doelkandidaat of publieke Castiq-route.

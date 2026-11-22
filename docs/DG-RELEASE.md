@@ -1,218 +1,115 @@
-# Castiq: kandidaat, latere activatie en herstel
+# Castiq releaseprocedure op dg-vps-08
 
-Dit runbook bereidt de afzonderlijk te autoriseren release naar staging op `dg-vps-08` voor. Er staat nog geen Castiq-kandidaat op die VPS. De app en worker zijn niet gestart, `current` ontbreekt en er is geen publieke Castiq-route. Een geslaagde lokale build bewijst geen doelbuild, Supabase-koppeling of stagingacceptatie.
+Bijgewerkt op 22 november 2026. De eerdere voorbereiding van 20 november is vervangen door de hieronder geverifieerde, per omgeving afgescheiden inrichting. Bron: `castiqnl/platform`, repository-ID `1446413160`, integratiebranch `main`; bestaande Fabelpad-inrichting is uitsluitend als contractreferentie gebruikt.
 
-De geverifieerde hostinrichting, controles vóór/na voorbereiding en actuele runnerstatus staan in [DG-VPS-08-HOST.md](DG-VPS-08-HOST.md). De exacte uiteindelijke broncommit en testresultaten staan in [PROJECTPROFIEL.md](PROJECTPROFIEL.md) en [VERIFICATIE.md](VERIFICATIE.md). Uitgangspunt voor deze voorbereiding was `9061381596cb2c647504461726fceb2148b192fb`. Vul een release-SHA steeds met de later goedgekeurde volledige commit op `main`.
+## Contract
 
-## Vast contract
+| Onderdeel | Staging | Productie |
+| --- | --- | --- |
+| GitHub environment | `staging` | `production` |
+| Site-ID | `castiq-vps08-staging` | `castiq-vps08-production` |
+| Origin | `https://staging.castiq.nl` | `https://castiq.nl` |
+| Runner | `dg-vps-08-castiq-vps08-staging` | `dg-vps-08-castiq-vps08-production` |
+| Exclusief runnerlabel | `castiq-vps08-staging` | `castiq-vps08-production` |
+| Runner / build / app-account | `run-cas-v08-stg` / `build-cas-v08-stg` / `app-cas-v08-stg` | `run-cas-v08-prd` / `build-cas-v08-prd` / `app-cas-v08-prd` |
+| Eigen loopbackpoort | 4184 | 4185 |
+| Supabase-ref | `zovwrexlzmhyejnfnmid` | `jyqajjfyksasehdlzfuf` |
 
-| Onderdeel | Afspraak en bron |
-|---|---|
-| Repository | `castiqnl/platform`, privé, repository-ID `1446413160`; geverifieerd via GitHub |
-| Integratiebranch | `main`; voorbereiding op `codex/dg-vps-08-staging-preparation` |
-| Doel | Nieuwe stagingidentiteit `castiq-staging` op geverifieerde host `dg-vps-08` |
-| SSH | `codex@100.65.51.108`, bestaande sleutel en hostkeycontrole; dit is een privé-Tailscale-adres en geen vastgestelde publieke DNS-bestemming |
-| Runtime | Eigen root-owned Node `24.18.0` / npm `11.16.0` onder `/opt/castiq/node-v24.18.0-linux-x64` |
-| Build/start | `npm ci` met gecommitteerd lockbestand, `npm run build` → `dist/`; productie start Node `server/index.ts` met `STATIC_DIR=dist` |
-| Web/API | Eén bestaande Node-server voor statische website en `/api`; uitsluitend `127.0.0.1:4184` |
-| Runner | Eigen naam `dg-vps-08-castiq-staging`; labels `self-hosted`, `Linux`, `X64`, `castiq`, `dg-vps-08`, `staging`, `castiq-staging` |
-| Rechten | `castiq-runner` vraagt alleen de vaste roothelper aan; `castiq-build` bouwt zonder runtimegeheimen; `castiq-app` leest releases en schrijft uitsluitend eigen uploads |
-| Artefacten | `/srv/castiq-staging/candidates/<candidate-id>`; releases `/srv/castiq-staging/releases/<release-id>` |
-| Privéconfiguratie | `/etc/castiq-staging/runtime.d/<runtime-id>.json`; afgeleide versiegebonden omgeving onder `/etc/castiq-staging/releases.d/` |
-| Services | `castiq-staging.service`, `castiq-staging-worker.service`, eigen runnerunit `castiq-staging-runner.service` |
-| Later GitHub environment | `castiq-dg-vps-08-staging`; nog afzonderlijk aanmaken en beschermen vóór gebruik van activatie |
+Algemene paden, met `<site>` uit bovenstaande tabel:
 
-React/Vite blijft behouden. De historische Docker/Caddy-route blijft de expliciete browserdemo. Deze native route voegt de bestaande API, private opslag en worker toe; zij migreert geen bestaande omgeving. Er is op deze nieuwe host geen bestaande `dg-site-deploy`-installatie aangetroffen. De projectspecifieke roothelper volgt de gecontroleerde DG-rechten-, lock- en releaseafspraken.
+- `/srv/sites/<site>/{candidates,releases,shared}`; `current` wijst naar één beheerd releasepaar.
+- `releases/<id>/{artifact,runtime.env,pair.json}`; vorige gezonde combinatie via `previous`.
+- `/etc/dg-webservices/<site>/{host.json,runtime.d,releases.d,activation.lock}`; root-only runtimeprofielen.
+- `/opt/actions-runner/<site>`, `/var/lib/dg-build/<site>`, `/usr/local/libexec/<site>` en eigen `/opt/dg-toolchains/<site>`.
+- `shared/uploads` en het onafhankelijke `shared/privacy-ledger` overleven codeactivatie en rollback. `shared/backups` is root-only en bevat alleen versleutelde eigen appbackups.
 
-## Configuratie aanleveren
+Runtime Node **24.18.0**, npm **11.16.0**. Installatie `npm ci` uit de lockfile. `npm run build` controleert eerst de exacte juridische archieven en bouwt met Vite naar `dist/`, inclusief assets, fonts en 27 standaardstijlen. Start: `node server/index.ts` met `STATIC_DIR=dist`; worker: `node server/worker.ts`. Geen frameworkmigratie.
 
-Gebruik uitsluitend deze vier GitHub **repository variables**, zonder aanvullende repositorysecrets of deployvariabelen:
+## Configuratie en grenzen
 
-| Naam | Bron | Gebruik |
-|---|---|---|
-| `CASTIQ_APP_ORIGIN` | Later geverifieerde afgeschermde stagingorigin, exact `https://hostnaam`, zonder pad of afsluitende slash | Build én runtime |
-| `CASTIQ_DATA_MODE` | Vaste waarde `server` voor staging | Build én runtime |
-| `NEXT_PUBLIC_SUPABASE_URL` | URL van het bedoelde afzonderlijke Supabase-stagingproject | Build én runtime |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key van datzelfde project, formaat `sb_publishable_…` | Build én runtime; openbaar, nooit service-role/secret key |
+De exact vier GitHub-variabelen staan per environment: `CASTIQ_APP_ORIGIN`, **`CASTIQ_DATA_MODE=supabase`**, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`. Ze zijn publiek en worden ingebakken. De kandidaat is aan hun hash gebonden. Er zijn geen deploymentsecrets of vijfde providerflags als GitHub-variabele toegevoegd.
 
-Vite neemt dit publieke profiel via een expliciete allowlist over. `NEXT_PUBLIC_*` is hier de afgesproken configuratienaam; het project blijft Vite. Een wijziging van een van de vier waarden vereist een nieuwe kandidaatbuild. De build en runtime moeten exact hetzelfde profiel hebben; de helper bindt dit aan een SHA256-`configId`. Gebruik identieke, ongewijzigde waarden zonder toegevoegde spaties in GitHub en op de host.
+De private runtime bevat daarnaast `DATABASE_URL`, `MAIL_ENCRYPTION_KEY`, `PRIVACY_LEDGER_HMAC_KEY`, `SUPABASE_ACCOUNT_OPERATIONS_KEY` en eventueel `PRIVACY_RETENTION_EXECUTE` (aanvankelijk `false`). De roothelper stelt de overige vaste runtimepaden en de SHA in. [BENODIGDE-GEGEVENS.md](BENODIGDE-GEGEVENS.md) specificeert bronnen en open providergegevens.
 
-De ingebouwde kortlevende `GITHUB_TOKEN` heeft alleen `contents: read` en `actions: read`. De workflows geven die in geheugen/stdin aan de helper door; zij slaat geen token op. Er is geen extra PAT of SSH-secret nodig voor deze releaseworkflows. Runnerregistratie gebruikt een afzonderlijk kortlevend GitHub-registratietoken, buiten broncode en logs.
+Een beperkte Postgres-serverrol heeft toegang tot het private Castiq-schema, zonder schema-/rolbeheer, bypass-RLS of Auth-schema. De vertrouwde API/worker gebruikt dit serverrecht; tenant- en teamrechten worden bij ieder API-verzoek server-side uit actuele memberships gecontroleerd. Anon/authenticated hebben geen toegang tot dat schema. De browser verbindt uitsluitend met Supabase Auth en de geautoriseerde Castiq-API. De platformrol krijgt metadata en templatebeheer, geen standaard clubinhoud.
 
-De beheerder maakt later als root een **nieuw** versiegebonden bestand `/etc/castiq-staging/runtime.d/<runtime-id>.json`, eigenaar `root:root`, modus `0600`, zonder symlinks of hardlinks. Het bevat precies de vier publieke namen en `DATABASE_URL`:
+Eigen runner-, build- en appunits blokkeren loopbackcontrolepoorten. Caddy en de vertrouwde healthcheck gebruiken bronadres `127.0.0.2`; wijzig dit niet zonder nieuwe isolatieproeven. De runner heeft uitsluitend digestgebonden sudo voor de vaste `build`/`activate`-helper van zijn eigen doel. Privileged scripts en units zijn root-owned. Eigen journals hebben 30 dagen retentie; gedeelde diensten en instellingen blijven ongewijzigd.
 
-```json
-{
-  "CASTIQ_APP_ORIGIN": "<exact dezelfde stagingorigin als GitHub>",
-  "CASTIQ_DATA_MODE": "server",
-  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "<publishable key van het stagingproject>",
-  "NEXT_PUBLIC_SUPABASE_URL": "<URL van hetzelfde stagingproject>",
-  "DATABASE_URL": "<private stagingverbinding met beperkte runtime-databaserol>"
-}
-```
+## Een volledige SHA toelaten en bouwen
 
-Dit is een schema met placeholders, geen geldige doelconfiguratie. Bewerk een nieuwe versie via een beveiligde editor; zet databasewachtwoorden niet in opdrachten, shellgeschiedenis, workflowoutputs of chat. Bestaande versies blijven behouden. Kies korte herkenbare IDs, bijvoorbeeld `cfg-20261120-01`; alleen letters, cijfers, `_` en `-` zijn toegestaan en de volledige release-ID mag maximaal 96 tekens zijn.
+Een push of PR voert uitsluitend CI uit; deployment is handmatig. Gebruik geen onbeoordeelde PR op de doelrunner.
 
-De helper legt `APP_ENV=staging`, `AUTH_MODE=supabase`, loopbackbinding, poort, uploadpad, `STATIC_DIR`, volledige `RELEASE_SHA` en `PUBLICATION_MODE=sandbox` vast. Deze namen worden geen extra GitHub-variabelen. Publicatie blijft uitsluitend sandbox: een request of enqueue is nooit extern kanaalbewijs.
+1. Integreer de geteste wijziging op `main` en neem de **volledige 40-tekens SHA**.
+2. Controleer de nieuwste push-CI op precies die SHA: workflow `Castiq local acceptance`, job `verify`, iedere vastgelegde install/config/types/domain/release/server/assets/legal/build/migratie/browserstap moet `completed/success` zijn. Ontbrekend, skipped, lopend, geannuleerd of mislukt wordt geweigerd. De root-owned admission gate controleert repository-ID, main-afstamming, CI-bronhash en actuele workflowpoging opnieuw.
+3. Bouw handmatig het gekozen doel:
 
-## Nog te voltooien voorwaarden
-
-1. Koppel de workspace en het bedoelde Supabase-stagingproject. Richt Auth met expliciete testgebruikers, de exacte origin/redirects en de benodigde mailvoorziening in. Wijs club-/teamrechten in de serverdatabase toe; vertrouw geen door gebruikers wijzigbare metadata. Google-login vraagt afzonderlijke providerconfiguratie en acceptatie en wordt niet als werkend verondersteld.
-2. Lever de vier publieke waarden aan en een private `DATABASE_URL` met een beperkte runtimegebruiker. Geef migraties een afzonderlijke bevoegde verbinding. Controleer database-TLS, netwerktoegang en de benodigde rechten. Het private schema `castiq` wordt niet als openbare Supabase Data API aangeboden.
-3. De negatieve netwerkprobes voor runner en build zijn uitgevoerd en root-only vastgelegd in `/etc/castiq-staging/control-plane-isolation.verified`. App- en workerisolatie zijn eveneens met tijdelijke vertrouwde probes bewezen. Het root-only bewijs bindt de geïnstalleerde unit-hashes. De eigen proxy en healthcheck gebruiken bronadres `127.0.0.2`; adminverkeer naar `127.0.0.1`, IPv6 en gemapte varianten blijft geblokkeerd. Bij wijzigingen moet dit bewijs opnieuw worden gecontroleerd.
-4. Maak later het eigen GitHub environment `castiq-dg-vps-08-staging` aan met de passende vereiste reviewers en uitsluitend `main` als deploymentbranch. Laat bestaande environments ongemoeid. De kandidaatworkflow gebruikt dit environment niet; activatie wacht er wel op. Start de activatieworkflow pas nadat de bescherming daadwerkelijk bestaat.
-5. Bevestig de domeinnaam, feitelijke DNS-bestemming, stagingafscherming en de beheerde backup-/restorevoorziening. Er is nog geen publieke URL of DNS-record vastgesteld.
-
-## Broncode en vereiste CI vrijgeven
-
-Review en merge deze voorbereiding later naar `main`. Pushes en PR's draaien uitsluitend de bestaande CI; beide nieuwe routes zijn alleen handmatig te starten. Onbeoordeelde PR's draaien niet op de doelrunner. Leg voor iedere release de volledige SHA, CI-run, publieke `configId`, buildrun en kandidaat-ID vast.
-
-De admissioncontrole draait eerst op een GitHub-hosted runner en opnieuw in de root-owned hosthelper. Zij vereist:
-
-- `workflow_dispatch` vanaf `refs/heads/main`, de juiste repository-ID en de huidige handmatige run/poging;
-- een volledige SHA van 40 kleine hextekens die aantoonbaar op `main` ligt;
-- exact CI-workflow-ID `407607093`, naam `Castiq local acceptance`, pad `.github/workflows/ci.yml` en de beoordeelde bronhash uit `scripts/release-gate.mjs`;
-- de nieuwste `push`-CI-run op `main` voor die exacte SHA, huidige poging, job `verify` en alle vereiste install/config/type/domain/release/server/assets/build/migratie/browserstappen daadwerkelijk `completed/success`;
-- een opgeslagen GitHub-runnaam `Castiq staging build <SHA>` of `Castiq staging activate <SHA>`, zodat een runner geen andere input-SHA kan indienen.
-
-Ontbrekende, geskipte, lopende, geannuleerde of mislukte vereiste controles blokkeren. Een oudere groene run of een gelijknamige PR-/andere workflow voldoet niet. Een wijziging van CI vereist expliciete review, bijwerken van de vastgelegde bronhash en gecontroleerd bijwerken van de root-owned policy op de host. Kopieer nooit automatisch uitvoerbare releasepolicy uit een te bouwen kandidaat.
-
-Vanuit een geverifieerde checkout, na bewuste keuze van de releasecommit:
-
-```bash
-SHA='VOLLEDIGE_GOEDGEKEURDE_SHA_40_KLEINE_HEXTEKENS'
-[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
-gh run list --repo castiqnl/platform --workflow ci.yml --branch main --commit "$SHA"
-```
-
-De placeholders in dit runbook moeten vooraf worden ingevuld. Gebruik geen verkorte SHA, tag of branchnaam als release-input.
-
-## Alleen een kandidaat bouwen
-
-Deze opdracht activeert niets:
-
-```bash
+```sh
 gh workflow run castiq-dg-vps-08-staging-build.yml \
-  --repo castiqnl/platform --ref main --field sha="$SHA"
-gh run list --repo castiqnl/platform \
-  --workflow castiq-dg-vps-08-staging-build.yml --branch main --limit 5
-gh run watch BUILD_RUN_ID --repo castiqnl/platform --exit-status
+  --repo castiqnl/platform --ref main \
+  -f environment=staging -f sha=VOLLEDIGE_SHA
+# Voor een afzonderlijke productiekandidaat: environment=production.
 ```
 
-Controleer de runnaam en noteer de werkelijk door de helper afgedrukte `candidateId`. Het formaat is `<eerste-12-SHA>-<buildrun-ID>-<poging>`. De roothelper downloadt de bron rechtstreeks van GitHub voor de exacte SHA; runner-owned checkouts of Gitconfiguratie zijn geen bron voor de build.
+De bestaande bestandsnamen blijven behouden; de workflows heten `Castiq dg-vps-08 candidate` en `Castiq dg-vps-08 activate` en verlangen expliciet het doel. Beide jobs gebruiken het betreffende GitHub environment. De build activeert niets.
 
-De doelbuild houdt `/run/lock/dg-build.lock` exclusief vast en gebruikt een eigen tijdelijke map onder `/var/lib/castiq-build/work`. De buildaccount krijgt alleen de vier publieke waarden en een eigen tijdelijk HOME. De route voert de bouwconfiguratiecontrole uit, `npm ci --ignore-scripts`, `npm run check`, `npm test`, `npm run verify:assets`, `npm run build` en `npm prune --omit=dev --ignore-scripts`. De uitgebreide database-/browser-/releasetests zijn al verplicht op exact dezelfde SHA in CI; de doelbuild raakt geen database aan en voert geen migraties of seeding uit.
+De doel-VPS bouwt exact de vrijgegeven SHA in een eigen werkmap, met het eigen buildaccount en de publieke doelconfiguratie. Runtimegeheimen zijn niet beschikbaar voor dit account. De bestaande gedeelde lock `/run/lock/dg-build.lock` en de eigen projectlock voorkomen overlap. Alleen bij exit75 wegens een werkelijk bezette lock volgt één begrensde retry na tien seconden. Verwijder nooit lockbestanden.
 
-De helper vereist ten minste 6 GiB vrije ruimte en 100.000 vrije inodes. Bij een bewezen bezette gedeelde buildlock volgt maximaal één nieuwe poging na tien seconden; verwijder geen lockbestand. Een ander probleem vraagt onderzoek. De kandidaat bevat `dist`, de server- en domeinbron, migraties, productieafhankelijkheden, toolchainmetadata en `release.json`. Na controle zijn bestanden root-owned en uitsluitend leesbaar/uitvoerbaar voor de appgroep. `current`, services, proxy en bestaande releases blijven onaangeroerd.
+Het resultaat staat in `/srv/sites/<site>/candidates/<candidate_id>` en bevat een root-owned artifact plus metadata met SHA, publieke configuratiehash, CI-/workflowrun, doel, runtimeversies en databasecompatibiliteit. Bewaar de uitgeprinte kandidaat-ID. Gezonde bestaande releases, `current`, proxy en services worden door bouwen niet gewijzigd.
 
-Controleer later via SSH uitsluitend niet-geheime metadata:
+## Activatievoorbereiding
 
-```bash
-ssh -i ~/.ssh/dg_vps_08_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes codex@100.65.51.108
-sudo cat /srv/castiq-staging/candidates/CANDIDATE_ID/release.json
-sudo test ! -e /srv/castiq-staging/current
-systemctl is-active castiq-staging.service castiq-staging-worker.service
-```
-
-De laatste twee controles horen bij deze eerste voorbereiding nog afwezig respectievelijk `inactive` te tonen. Bij een bestaande latere stagingomgeving vergelijk je de aangetroffen huidige release en health vóór/na de kandidaatbuild; die blijven gelijk.
-
-## Migraties, backups en root-readiness
-
-Migraties zijn een afzonderlijke beheerdersstap, nooit een build- of activatiebijwerking. Inspecteer de SQL van de kandidaat, vergelijk de geregistreerde migratiechecksums, leg de voorwaartse en terugwaartse appcompatibiliteit vast en maak vooraf een goedgekeurde versleutelde backup van database **én** uploads. Bewijs herstel in een eigen geïsoleerde restoreomgeving. Bestaande data wordt niet gereset; reeds toegepaste SQL-bestanden worden niet gewijzigd.
-
-Na aparte vrijgave van de databasehandeling kan een beheerder op de host de gecommitteerde migratieroute draaien met een root-only bestand dat alleen de afzonderlijke migratieverbinding bevat. Het pad hieronder moet eerst werkelijk en veilig zijn ingericht:
-
-```bash
-sudo /opt/castiq/node-v24.18.0-linux-x64/bin/node \
-  --env-file=/ROOT_ONLY_PAD/NAAR/MIGRATIE.env \
-  /srv/castiq-staging/candidates/CANDIDATE_ID/database/migrate.ts
-```
-
-Gebruik hiervoor geen runtimecredential met ruimere rechten en geen credentials van een andere omgeving. Voer `db:seed` niet op staging uit: die route is bewust beperkt tot lokale fictieve accounts. Het veilig aanmaken/toewijzen van echte stagingclubs en memberships vereist nog een beoordeelde provisioningstap.
-
-Pas na aantoonbare controles maakt/beheert root `/etc/castiq-staging/activation-readiness.json`, `root:root`, `0600`:
+Voor activatie moet een beheerder de werkelijke controles hebben uitgevoerd en `/etc/dg-webservices/<site>/activation-readiness.json` root0600 vastleggen met:
 
 ```json
 {
-  "sha": "<volledige goedgekeurde kandidaat-SHA>",
-  "runtime_config_id": "<het nieuwe runtime-id>",
-  "database_migrated_and_compatible": false,
-  "encrypted_backup_restore_verified": false,
-  "private_access_verified": false,
-  "control_plane_isolation_verified": false
+  "sha": "VOLLEDIGE_SHA",
+  "runtime_config_id": "initial-20261122",
+  "database_migrated_and_compatible": true,
+  "encrypted_backup_restore_verified": true,
+  "private_access_verified": true,
+  "control_plane_isolation_verified": true
 }
 ```
 
-De vier booleans mogen pas `true` worden met bijbehorend werkelijk bewijs voor deze SHA en runtimeversie. Dit bestand is een expliciete rootgoedkeuring, geen vervanging van de controles. Supabasegegevens, backup-/restoreacceptatie en stagingafscherming ontbreken nog. De hostisolatie is afzonderlijk bewezen; hiermee is de applicatie nog niet geaccepteerd.
+Dit zijn bewijsvelden, geen vervanging voor tests. Verifieer migratiechecksums met het kandidaatartifact, de beperkte DB-verbinding met TLS/hostnamecontrole, werkelijk versleutelde backup en geïsoleerd herstel, ongeautoriseerde API-weigering, juiste account-/tenantgrenzen en de root-only unitgebonden isolatiemarkering. Een ontbrekend extern e-mailbewijs blijft afzonderlijk open; app-readiness bewijst geen mailaflevering of echte socialpublicatie.
 
-## Latere activering: aparte opdracht vereist
+[AUTH-EN-MAIL.md](AUTH-EN-MAIL.md) bevat de afzonderlijke noodzakelijke Auth-URL/OTP/templateconfiguratie. Gegevensafhankelijke migraties vereisen vooraf backup en compatibiliteitsbeoordeling. Runtime heeft geen migratierecht; pas de gereviewde SQL via de geautoriseerde Supabase-verbinding toe. Reeds toegepaste SQL-bestanden wijzigen is verboden. Ruwe productiedata worden niet in tests geladen.
 
-Start deze stappen nu niet. Ze vormen samen de later vrij te geven eerste installatie, inclusief de toegang via HTTPS.
+De gebruiker heeft stagingactivatie in deze taak geautoriseerd. **Publieke productieactivatie is een afzonderlijke opdracht.** Een productiekandidaat en gecontroleerde inrichting zijn daarvan gescheiden resultaten.
 
-1. Leg de huidige services, `current`/`previous`, bestaande proxyconfiguratie en health vast. Controleer runtimeprofiel, readiness, diskruimte, kandidaatmetadata en versiegebonden databasecompatibiliteit. Valideer de eigen geïnstalleerde units:
+## Handmatige activatie en HTTPS
 
-   ```bash
-   sudo systemd-analyze verify /etc/systemd/system/castiq-staging.service \
-     /etc/systemd/system/castiq-staging-worker.service
-   ```
-
-2. Geef uitsluitend de bedoelde kandidaat en runtimeversie vrij via het beschermde environment:
-
-   ```bash
-   gh workflow run castiq-dg-vps-08-staging-activate.yml \
-     --repo castiqnl/platform --ref main \
-     --field sha="$SHA" --field candidate_id=CANDIDATE_ID \
-     --field runtime_config_id=RUNTIME_CONFIG_ID
-   gh run list --repo castiqnl/platform \
-     --workflow castiq-dg-vps-08-staging-activate.yml --branch main --limit 5
-   gh run watch ACTIVATION_RUN_ID --repo castiqnl/platform --exit-status
-   ```
-
-   De helper maakt een nieuwe release met zijn eigen root-only runtimebestand. Onder een exclusieve activatielock wisselt zij `current`, herstart de app en bevestigt de geselecteerde SHA via een root-controlled loopbackhealthcheck. Een reeds actieve worker wordt samen met die combinatie gestopt/herstart; een nog inactieve worker wordt niet voor het eerst gestart. De vorige gezonde app/config-pair blijft als `previous` beschikbaar.
-
-3. Controleer vanuit de beheeromgeving `systemctl is-active castiq-staging.service`, de gekozen `current` en `http://127.0.0.1:4184/api/health`. Verwacht `status=ok`, juiste `commit`, `authMode=supabase` en `publicationMode=sandbox-only`. Dit bewijst databasebereikbaarheid en de gekozen servermodus; het bewijst nog geen daadwerkelijke Supabase-login, DNS, TLS of publieke gereedheid.
-
-4. Maak uit `/etc/castiq-staging/pending/Caddyfile.pending` een **nieuw eigen** fragment met de geverifieerde hostname en de gekozen afscherming. De placeholder is alleen parsebaar voorbereidingsmateriaal; zij is geen toegestane domeinnaam of toegangsbescherming. Controleer A én AAAA tegen de werkelijk geverifieerde bestemming, certificaatvoorwaarden en toegang voor uitsluitend de bedoelde gebruikers. Gebruik het Tailscale-adres niet als verondersteld publiek DNS-record.
-
-5. Valideer eerst het eigen fragment en daarna een root-only reviewkopie van de volledige actuele Caddyconfiguratie met dat nieuwe fragment inbegrepen:
-
-   ```bash
-   sudo caddy validate --config /etc/castiq-staging/pending/castiq-staging.caddy --adapter caddyfile
-   sudo caddy validate --config /etc/castiq-staging/pending/Caddyfile.review --adapter caddyfile
-   ```
-
-   Controleer dat `/etc/caddy/sites/castiq-staging.caddy` nog niet bestaat. Installeer daarna alleen het nieuwe eigen fragment, valideer de volledige actieve configuratie opnieuw en reload uitsluitend na succesvolle validatie:
-
-   ```bash
-   sudo test ! -e /etc/caddy/sites/castiq-staging.caddy || exit 1
-   sudo test ! -L /etc/caddy/sites/castiq-staging.caddy || exit 1
-   sudo install -o root -g root -m 0644 \
-     /etc/castiq-staging/pending/castiq-staging.caddy /etc/caddy/sites/castiq-staging.caddy
-   sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-   sudo systemctl reload caddy
-   ```
-
-   Vervang geen bestaand fragment. Bij mislukte validatie vóór reload verwijder je uitsluitend het zojuist zelf toegevoegde fragment en controleer je de oorspronkelijke configuratie opnieuw. Bestaande routes en verkeer blijven behouden.
-
-6. Bevestig vanaf de bedoelde toegang de HTTPS-certificaatketen/hostname, afscherming, website/assets en `/api/health` met de juiste SHA. Controleer dat onbevoegde toegang werkelijk wordt geweigerd. Voer een echte Supabase-aanmelding, sessieverversing en afmelding uit. Controleer daarna veilige upload, opslag/herstel op twee apparaten, drie gescheiden testclubs, de juiste club-/teamrollen en de volledige concept → revisie → feedback → goedkeuring → **sandbox**-publicatieroute uit de acceptatiematrix. O10, privacyvoorkeuren, scorecorrecties en ingetrokken samengestelde versies blijven onderdeel van acceptatie. Er is geen afzonderlijk `/ready`-endpoint; deze gebruikers- en infrastructuurcontroles leveren de aanvullende readinessbewijzen.
-
-Bewaar de feitelijke uitkomsten en niet-geheime bewijsidentificaties bij de release. `healthy.json` vermeldt bewust alleen `loopback-health` en `publicAcceptance: false`; claim geen publieke acceptatie of kanaalpublicatie op basis daarvan. De worker voor het eerst starten/inschakelen en services voor boot enablen vallen onder die latere expliciete operationele opdracht.
-
-## Mislukte installatie en rollback
-
-Buildfouten wijzigen geen releaseverwijzing. Bij een activatiefout herstelt de helper de vorige gezonde app/config-pair en de voorafgaande workerstatus, met een nieuwe healthcheck. Bij een mislukte eerste installatie stopt zij de eigen app en verwijdert uitsluitend de zelf geplaatste `current`-verwijzing; er is dan nog geen vorige release. Zij laat kandidaatgegevens, runtimeversies, uploads, database en auditbewijs behouden. Inspecteer een gedeeltelijke eigen release en de gesanitiseerde service-/workflowuitvoer voordat een nieuwe poging met een nieuw beoordeeld runtime-ID wordt gedaan; verwijder geen bestaande data om een fout te verbergen.
-
-Een rollback is een afzonderlijke rootbeheerdershandeling en ontbreekt bewust in runner-sudo. Bevestig eerst databasecompatibiliteit, backup-/herstelstatus en dat de aangewezen combinatie werkelijk de geregistreerde vorige gezonde pair is:
-
-```bash
-sudo readlink -f /srv/castiq-staging/current
-sudo readlink -f /srv/castiq-staging/previous
-sudo /usr/local/libexec/castiq-staging-release rollback VORIGE_RELEASE_ID
-systemctl is-active castiq-staging.service
+```sh
+gh workflow run castiq-dg-vps-08-staging-activate.yml \
+  --repo castiqnl/platform --ref main \
+  -f environment=staging -f sha=VOLLEDIGE_SHA \
+  -f candidate_id=KANDIDAAT_ID -f runtime_config_id=initial-20261122
 ```
 
-De helper serialiseert rollback met dezelfde activatielock, wisselt code én runtimeconfiguratie samen, controleert loopbackhealth en bewaart de verlaten gezonde combinatie als `previous`. Zij herstelt de voorafgaande combinatie bij een mislukte herstelpoging. Controleer daarna ook afgeschermde HTTPS-health, login en de belangrijkste gebruikersflow; leg de werkelijk actieve SHA vast.
+De roothelper controleert opnieuw SHA/CI, kandidaat-/runtimehash en omgeving. Onder één activatielock maakt hij een onveranderlijk app-/runtimepaar, stopt alleen de eigen worker indien nodig, wisselt alleen de eigen `current`, start de eigen service en controleert health+readiness op precies die SHA. Pas daarna start de eigen worker en wordt het paar gezond gemarkeerd. Een geslaagde activatieprocedure is nog geen externe gebruikersacceptatie.
 
-Rollback wijzigt geen database, uploads, DNS, proxy, extern bericht of onzekere provideruitkomst. Een onverenigbare databasemigratie vereist een apart goedgekeurd herstelplan en getest backupherstel; activeer niet blind oudere code. Bewaar alle receipts, versies en audit. Alleen een eigen nieuw proxyfragment wordt bij een daarvoor vrijgegeven eerste-installatieherstel verwijderd; draai daarvoor geen gedeelde Caddyconfiguratie of bestaande site terug.
+HTTPS, uitsluitend na gezonde loopbackcontrole:
 
-`/api/readiness` controleert toegepaste migratiechecksums, lees-/schrijftoegang tot de uploadmap en aanwezigheid van de frontend. De runtimegebruiker moet `castiq.migration_history` kunnen lezen. Deze controle bewijst geen echte Supabase-aanmelding, gebruikersflow, backupherstel of externe kanaalpublicatie. Controleer health én readiness met bronadres `127.0.0.2` en dezelfde volledige SHA; dit is ook vereist door de vertrouwde activatiehelper.
+1. Verifieer A/AAAA en bestemming `204.168.128.28`. Maak geen productieroute actief tijdens staginguitrol.
+2. Controleer de eigen voorbereide Caddy-site onder `/etc/dg-webservices/<site>/pending/`. De upstream gebruikt `local_address 127.0.0.2`. Staging krijgt `noindex`.
+3. Plaats uitsluitend het eigen sitefragment in `/etc/caddy/sites/`, valideer de gehele bestaande Caddyconfiguratie met `caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile` en reload Caddy zonder restart. Behoud bestaande fragmenten en routes.
+4. Controleer werkelijk certificaat, redirect HTTP→HTTPS, `/api/health`, `/api/readiness`, SHA, publieke juridische downloads en accountblokkering bij unauthenticated verzoeken.
+5. Test OTP, Google-terugkeer, expliciete persoonlijke registratie en de hoofdflow met daarvoor bedoelde accounts. Test beheer afzonderlijk van clubinhoud. Leg ontbrekende menselijke/providerbevestigingen vast; verzin geen ontvangstbewijs.
+6. Controleer Fabelpad current, PIDs en bekende health-URLs opnieuw en vergelijk met [het uitgangsbewijs](deploy-evidence/native-host-2026-11-22.json).
+
+De marketing-/juridische pagina’s zijn publiek; alle persoonlijke en clubgegevens en beheerschermen vereisen server-gecontroleerde identiteit/rechten. De huidige kanaaladapter blijft uitsluitend sandbox. Een enqueue, export, timeout of demo-receipt is nooit een echte openbare post.
+
+## Rollback en mislukte eerste installatie
+
+Bekijk eerst root-only `pair.json` van huidige en vorige gezonde release. Rollback wisselt app én runtime samen, alleen binnen dezelfde vastgelegde databasecompatibiliteit. Een schemawijziging wordt niet teruggedraaid door een symlinkwissel. Beoordeel afwijkende schema’s apart; restore is een gequarantaineerde procedure met replay van de onafhankelijke wisledger vóór vrijgave.
+
+```sh
+# Alleen als geautoriseerde hostbeheerder; de runner heeft geen algemene sudo.
+sudo /usr/local/libexec/castiq-vps08-staging/release.py rollback VORIGE_GEZONDE_RELEASE_ID
+```
+
+De helper serialiseert rollback met activatie, controleert beheerde paden, gezondmarkering en compatibiliteit, stopt alleen de eigen worker, wisselt het paar en voert opnieuw health/readiness uit. Bewaar het huidige paar voor onderzoek. Uploads en wisledger worden niet teruggezet of verwijderd.
+
+Bij een mislukte **eerste** activatie zonder vorige gezonde release stopt de helper de nieuwe eigen service/worker en verwijdert uitsluitend de nieuwe `current`-verwijzing. Er is dan geen gezonde applicatie om op terug te vallen. Verwijder geen database of uploads. Als een nieuwe eigen proxyroute al geplaatst was, haal uitsluitend dat fragment uit de import en valideer/reload opnieuw; laat bestaande sites ongemoeid.
+
+Voer geen live rollback uit als test. Offline release-boundarytests dekken beide omgevingen, lockconflicten, fouten tijdens eerste activatie/herstel, schemagrenzen en blijvend behoud van de onafhankelijke ledger. Werkelijke deploymentresultaten en exacte SHA staan in [STATUS.md](STATUS.md).

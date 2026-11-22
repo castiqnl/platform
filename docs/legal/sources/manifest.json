@@ -1,0 +1,17 @@
+{
+  "terms": {
+    "path": "docs/legal/sources/terms-supplied.md",
+    "sha256": "d58724209b38347860cd90d0681fb3092e1439d3d12c89b34ec705670e127689",
+    "encoding": "UTF-8, supplied text contains reversible CP1252/UTF-8 mojibake"
+  },
+  "privacy": {
+    "path": "docs/legal/sources/privacy-supplied.md",
+    "sha256": "9ee93c991b9b7836a78162f843a25a748fe9894eacee276c9431562d06bf78b8",
+    "encoding": "UTF-8, supplied text contains reversible CP1252/UTF-8 mojibake"
+  },
+  "assignment": {
+    "path": "docs/legal/sources/assignment-supplied.md",
+    "sha256": "62918442e51b67d7cbcc372281a7e1dd4ff6e9ed83ddff423c83f5b17fa2c4f4",
+    "encoding": "UTF-8, supplied text contains reversible CP1252/UTF-8 mojibake"
+  }
+}

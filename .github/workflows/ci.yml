@@ -45,6 +45,7 @@ jobs:
       - run: npm run test:release
       - run: npm run test:server
       - run: npm run verify:assets
+      - run: npm run verify:legal
       - run: npm run build
       - run: npm run db:migrate
       - run: npm run db:seed
