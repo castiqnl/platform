@@ -1,0 +1,246 @@
+{
+  "version": 1,
+  "date": "2026-11-22",
+  "repository": "castiqnl/platform",
+  "integrationBranch": "main",
+  "applicationSha": "f38e8f77963761157315accfb6d96140f0cae9bb",
+  "runtimeConfigId": "initial-20261122",
+  "workflowRuns": {
+    "ci": 45074145732,
+    "stagingCandidate": 45074332095,
+    "productionCandidate": 45074436060,
+    "stagingActivation": 45074504198
+  },
+  "beforeActivation": {
+    "checkedAt": "2026-11-22T21:38:58.747785+00:00",
+    "host": "dg-vps-08",
+    "services": {
+      "fabelpad-vps08-staging": {
+        "MainPID": "435154",
+        "ActiveState": "active",
+        "UnitFileState": "enabled"
+      },
+      "fabelpad-vps08-production": {
+        "MainPID": "437056",
+        "ActiveState": "active",
+        "UnitFileState": "enabled"
+      },
+      "caddy": {
+        "MainPID": "4564",
+        "ActiveState": "active",
+        "UnitFileState": "enabled"
+      },
+      "castiq-vps08-staging": {
+        "MainPID": "0",
+        "ActiveState": "inactive",
+        "UnitFileState": "disabled"
+      },
+      "castiq-vps08-staging-worker": {
+        "MainPID": "0",
+        "ActiveState": "inactive",
+        "UnitFileState": "disabled"
+      },
+      "castiq-vps08-production": {
+        "MainPID": "0",
+        "ActiveState": "inactive",
+        "UnitFileState": "disabled"
+      },
+      "castiq-vps08-production-worker": {
+        "MainPID": "0",
+        "ActiveState": "inactive",
+        "UnitFileState": "disabled"
+      }
+    },
+    "current": {
+      "fabelpad-vps08-staging": "releases/003670aad04ecdf761b21627d8624dea50403ae5-45072508682-1",
+      "fabelpad-vps08-production": "releases/003670aad04ecdf761b21627d8624dea50403ae5-45072710965-1"
+    },
+    "health": {
+      "fabelpad-staging-loopback": 200,
+      "fabelpad-production-loopback": 200,
+      "fabelpad-staging-public": 200
+    },
+    "configSha256": {
+      "/etc/caddy/Caddyfile": "3acfe7107fb2f3ec21e3c0292daf2725be21b79c707a41394c848b1ee3aeefab",
+      "/etc/caddy/sites/fabelpad-vps08-staging.caddy": "ba6facd1a010dab378eeb170cbaf26b2969c38f4fbfd735269a873280d039acb"
+    },
+    "dns": {
+      "staging.castiq.nl": [
+        "204.168.128.28"
+      ],
+      "castiq.nl": [
+        "204.168.128.28"
+      ]
+    }
+  },
+  "afterActivation": {
+    "checkedAt": "2026-11-22T21:53:47.111803+00:00",
+    "host": "dg-vps-08",
+    "services": {
+      "fabelpad-vps08-staging": {
+        "MainPID": "435154",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "fabelpad-vps08-production": {
+        "MainPID": "437056",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "caddy": {
+        "MainPID": "4564",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "castiq-vps08-staging": {
+        "MainPID": "445770",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "castiq-vps08-staging-worker": {
+        "MainPID": "445797",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "castiq-vps08-production": {
+        "MainPID": "0",
+        "ActiveState": "inactive",
+        "SubState": "dead",
+        "UnitFileState": "disabled"
+      },
+      "castiq-vps08-production-worker": {
+        "MainPID": "0",
+        "ActiveState": "inactive",
+        "SubState": "dead",
+        "UnitFileState": "disabled"
+      },
+      "castiq-vps08-staging-runner": {
+        "MainPID": "417001",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "castiq-vps08-production-runner": {
+        "MainPID": "417197",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      }
+    },
+    "current": {
+      "fabelpad-vps08-staging": "releases/003670aad04ecdf761b21627d8624dea50403ae5-45072508682-1",
+      "fabelpad-vps08-production": "releases/003670aad04ecdf761b21627d8624dea50403ae5-45072710965-1",
+      "castiq-vps08-staging": "/srv/sites/castiq-vps08-staging/releases/f38e8f77963761157315accfb6d96140f0cae9bb-45074332095-1-initial-20261122",
+      "castiq-vps08-production": null
+    },
+    "health": {
+      "fabelpad-staging-loopback": 200,
+      "fabelpad-production-loopback": 200,
+      "fabelpad-staging-public": 200,
+      "castiq-staging-public": 200
+    },
+    "configSha256": {
+      "/etc/caddy/Caddyfile": "3acfe7107fb2f3ec21e3c0292daf2725be21b79c707a41394c848b1ee3aeefab",
+      "/etc/caddy/sites/fabelpad-vps08-staging.caddy": "ba6facd1a010dab378eeb170cbaf26b2969c38f4fbfd735269a873280d039acb",
+      "/etc/caddy/sites/castiq-vps08-staging.caddy": "d080c4fd10730a6ff47bfb922990aae9e773a0b60d9f6d32280a57ef47fcc9eb"
+    },
+    "importedProxySites": [
+      "castiq-vps08-staging.caddy",
+      "fabelpad-vps08-staging.caddy"
+    ],
+    "castiq": {
+      "staging": {
+        "candidates": [
+          "7cdb874f261a39c2cdc7a5172b9f05ffb0892906-45073217490-1",
+          "f38e8f77963761157315accfb6d96140f0cae9bb-45074332095-1"
+        ],
+        "releases": [
+          "7cdb874f261a39c2cdc7a5172b9f05ffb0892906-45073217490-1-initial-20261122",
+          "f38e8f77963761157315accfb6d96140f0cae9bb-45074332095-1-initial-20261122"
+        ],
+        "healthy": {
+          "sha": "f38e8f77963761157315accfb6d96140f0cae9bb",
+          "runtimeConfigId": "initial-20261122",
+          "checks": [
+            "loopback-health",
+            "readiness",
+            "worker-running"
+          ],
+          "publicAcceptance": false
+        },
+        "previousExists": false,
+        "activationReadinessPresent": true,
+        "lockMode": "0o600",
+        "releaseHelperSha256": "103bddc778bbb27a08064e8c5fce7a978fa9056c65fa2adc17881756a9aab7b8",
+        "backupToolSha256": "dbf7fa572c81826eacc6ffcaec8989885a4c23185ae2a406718e52e40cdd7c2a"
+      },
+      "production": {
+        "candidates": [
+          "7cdb874f261a39c2cdc7a5172b9f05ffb0892906-45073318575-1",
+          "f38e8f77963761157315accfb6d96140f0cae9bb-45074436060-1"
+        ],
+        "releases": [],
+        "healthy": null,
+        "previousExists": false,
+        "activationReadinessPresent": false,
+        "lockMode": "0o600",
+        "releaseHelperSha256": "103bddc778bbb27a08064e8c5fce7a978fa9056c65fa2adc17881756a9aab7b8",
+        "backupToolSha256": "dbf7fa572c81826eacc6ffcaec8989885a4c23185ae2a406718e52e40cdd7c2a"
+      }
+    }
+  },
+  "publicChecks": {
+    "checkedAt": "2026-11-22T21:53:32.691Z",
+    "origin": "https://staging.castiq.nl",
+    "applicationSha": "f38e8f77963761157315accfb6d96140f0cae9bb",
+    "checks": [
+      "HTTPS health and environment identity",
+      "Private APIs and demo login refused",
+      "Three legal downloads match immutable hashes",
+      "Real email and Google login interface",
+      "Seven public legal and privacy routes",
+      "Mobile layout and production demo bypass refusal",
+      "No browser runtime errors"
+    ],
+    "externalOtpAndGoogleHumanSessionVerified": false,
+    "emailSent": false,
+    "resendDeliveryVerified": false
+  },
+  "https": {
+    "hostname": "staging.castiq.nl",
+    "httpRedirectStatus": 308,
+    "issuer": "Let\u2019s Encrypt YE1",
+    "notBeforeUtc": "2026-11-22T20:44:03Z",
+    "notAfterUtc": "2027-02-20T20:44:02Z",
+    "certificateVerificationPassed": true
+  },
+  "existingFabelpadUnchangedDuringCastiqActivation": true,
+  "separateFabelpadReleaseObservedBeforeCastiqActivation": {
+    "stagingActiveSince": "2026-11-22T21:33:52Z",
+    "productionActiveSince": "2026-11-22T21:35:43Z",
+    "note": "Releases differed from the earlier preparation snapshot; observed before Castiq activation and preserved. No Fabelpad restoration or modification performed."
+  },
+  "firstCompleteHealthyRelease": true,
+  "previousCompleteHealthyRelease": null,
+  "supersededInitialApiOnlyRelease": {
+    "sha": "7cdb874f261a39c2cdc7a5172b9f05ffb0892906",
+    "artifactAndRuntimeRetained": true,
+    "proofRenamed": "api-only-verified.json",
+    "previousLinkRemoved": true,
+    "reason": "Initial worker exited without entering its loop; fixed and regression-tested before final release."
+  },
+  "temporaryWorkspaceProvisioningSecretsRemoved": true,
+  "productionActivated": false,
+  "productionProxyImported": false,
+  "authDashboardSettingsAppliedByAgent": false,
+  "userWillConfigureSupabaseAuth": true,
+  "resendApiConfigured": false,
+  "externalMailDeliveryVerified": false,
+  "destructivePrivacyRetentionEnabled": false,
+  "realSocialPublicationAdaptersConfigured": false
+}

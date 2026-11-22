@@ -97,6 +97,15 @@ HTTPS, uitsluitend na gezonde loopbackcontrole:
 5. Test OTP, Google-terugkeer, expliciete persoonlijke registratie en de hoofdflow met daarvoor bedoelde accounts. Test beheer afzonderlijk van clubinhoud. Leg ontbrekende menselijke/providerbevestigingen vast; verzin geen ontvangstbewijs.
 6. Controleer Fabelpad current, PIDs en bekende health-URLs opnieuw en vergelijk met [het uitgangsbewijs](deploy-evidence/native-host-2026-11-22.json).
 
+Na de eerste geautoriseerde gezonde activatie wordt alleen de eigen omgeving voor een reboot ingeschakeld. Dit is voor staging uitgevoerd; productie blijft disabled:
+
+```sh
+sudo -n systemctl enable castiq-vps08-staging.service castiq-vps08-staging-worker.service
+systemctl is-active castiq-vps08-staging.service castiq-vps08-staging-worker.service
+```
+
+De huidige stagingrelease is `f38e8f77963761157315accfb6d96140f0cae9bb-45074332095-1-initial-20261122`. De werkelijke vrijgave en afzonderlijke Fabelpad-baseline vóór/na staan in [het uitrolbewijs](deploy-evidence/staging-release-2026-11-22.json). Fabelpad was tussen de oorspronkelijke voorbereiding en Castiq-activatie afzonderlijk vernieuwd; behoud bij een volgende release altijd de dan aangetroffen gezonde stand.
+
 De marketing-/juridische pagina’s zijn publiek; alle persoonlijke en clubgegevens en beheerschermen vereisen server-gecontroleerde identiteit/rechten. De huidige kanaaladapter blijft uitsluitend sandbox. Een enqueue, export, timeout of demo-receipt is nooit een echte openbare post.
 
 ## Rollback en mislukte eerste installatie
@@ -117,3 +126,5 @@ De helper serialiseert rollback met activatie, controleert beheerde paden, gezon
 Bij een mislukte **eerste** activatie zonder vorige gezonde release stopt de helper de nieuwe eigen service/worker en verwijdert uitsluitend de nieuwe `current`-verwijzing. Er is dan geen gezonde applicatie om op terug te vallen. Verwijder geen database of uploads. Als een nieuwe eigen proxyroute al geplaatst was, haal uitsluitend dat fragment uit de import en valideer/reload opnieuw; laat bestaande sites ongemoeid.
 
 Voer geen live rollback uit als test. Offline release-boundarytests dekken beide omgevingen, lockconflicten, fouten tijdens eerste activatie/herstel, schemagrenzen en blijvend behoud van de onafhankelijke ledger. Werkelijke deploymentresultaten en exacte SHA staan in [STATUS.md](STATUS.md).
+
+Op 22 november is `f38e8f7…` de **eerste volledig gezonde API-/workerrelease**; er is nog geen vorige gezonde combinatie en geen `previous`-link. De oorspronkelijke eigen `7cdb874…`-release had alleen een gezonde API. Haar artifact en runtime blijven bewaard, maar de markering is hernoemd naar `api-only-verified.json` en zij mag niet worden teruggezet als gezonde release. Een volgende geslaagde activatie bewaart de huidige complete combinatie als rollbackdoel.
