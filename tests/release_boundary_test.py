@@ -285,6 +285,37 @@ class ReleaseBoundaryTests(unittest.TestCase):
             self.assertFalse((fixture.new / 'healthy.json').exists())
             self.assertTrue((fixture.old / 'pair.json').exists())
 
+    def test_first_activation_metadata_failure_after_worker_start_stops_new_worker(self):
+        with self.transaction(existing=False, worker=False) as fixture:
+            write_text = Path.write_text
+            def fail_healthy_metadata(path, *arguments, **options):
+                if path == fixture.new / 'healthy.json':
+                    self.assertTrue(fixture.state.worker)
+                    raise OSError('fixture metadata failure after worker start')
+                return write_text(path, *arguments, **options)
+            with mock.patch.object(Path, 'write_text', fail_healthy_metadata), self.assertRaisesRegex(OSError, 'after worker start'):
+                fixture.activate()
+            self.assertFalse(fixture.state.worker)
+            self.assertFalse(fixture.state.app)
+            self.assertFalse((fixture.site / 'current').is_symlink())
+            self.assertFalse((fixture.site / 'previous').is_symlink())
+            self.assertEqual([str(part) for part in fixture.run.call_args_list[-2].args[0]], ['/usr/bin/systemctl', 'stop', release.SITE_ID + '-worker.service'])
+
+    def test_first_activation_partially_started_worker_is_stopped_on_start_failure(self):
+        with self.transaction(existing=False, worker=False) as fixture:
+            command = fixture.run.side_effect
+            def partial_worker_start(parts, **options):
+                command(parts, **options)
+                if [str(part) for part in parts] == ['/usr/bin/systemctl', 'start', release.SITE_ID + '-worker.service']:
+                    self.assertTrue(fixture.state.worker)
+                    raise OSError('fixture partial worker start failure')
+            fixture.run.side_effect = partial_worker_start
+            with self.assertRaisesRegex(OSError, 'partial worker start'):
+                fixture.activate()
+            self.assertFalse(fixture.state.worker)
+            self.assertFalse(fixture.state.app)
+            self.assertFalse((fixture.site / 'current').is_symlink())
+
     def test_rollback_rechecks_previous_after_lock_and_refuses_changed_target(self):
         def replace_previous(fixture):
             self.assertTrue(fixture.state.locked)
@@ -474,6 +505,25 @@ class ReleaseBoundaryTests(unittest.TestCase):
         (tree / 'directory-link').symlink_to('nested', target_is_directory=True)
         with self.assertRaisesRegex(ValueError, 'file links'):
             release.regular_tree(tree)
+
+    def test_packaged_server_can_load_exact_asset_manifest_without_shipping_other_docs(self):
+        source, artifact = self.base / 'source', self.base / 'artifact'
+        source.mkdir()
+        for name in ['dist', 'server', 'src', 'shared', 'emails', 'scripts', 'database', 'node_modules']:
+            (source / name).mkdir()
+        for name in ['package.json', 'package-lock.json', '.nvmrc']:
+            (source / name).write_text('fixture')
+        (source / 'package.json').write_text('{"type":"module"}')
+        (source / 'docs').mkdir()
+        manifest = (ROOT / 'docs/ASSET-MANIFEST.json').read_bytes()
+        (source / 'docs/ASSET-MANIFEST.json').write_bytes(manifest)
+        (source / 'docs/handover-private.txt').write_text('not a runtime dependency')
+        (source / 'server/workflow.ts').write_text("import {readFileSync} from 'node:fs';\nJSON.parse(readFileSync(new URL('../docs/ASSET-MANIFEST.json',import.meta.url),'utf8'));\n")
+        release.copy_runtime_artifact(source, artifact)
+        # Exercise the actual module-relative read that previously failed with ENOENT.
+        subprocess.run(['node', artifact / 'server/workflow.ts'], check=True, capture_output=True)
+        self.assertEqual((artifact / 'docs/ASSET-MANIFEST.json').read_bytes(), manifest)
+        self.assertEqual([path.name for path in (artifact / 'docs').iterdir()], ['ASSET-MANIFEST.json'])
 
     def test_artifact_tree_refuses_escape_broken_links_hardlinks_and_special_files(self):
         outside = self.base / 'outside'

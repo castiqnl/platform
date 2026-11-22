@@ -18,7 +18,7 @@ function fixture(action = 'build', environment = 'staging') {
   const dispatch = { id: 990, state: 'active', ...RELEASE_POLICY.dispatch[action] };
   const ci = { ...RELEASE_POLICY.ci, state: 'active' };
   const dispatchRun = {
-    id: 700, run_attempt: 1, workflow_id: dispatch.id, name: dispatch.name,
+    id: 700, run_attempt: 1, workflow_id: dispatch.id, name: `Castiq ${environment} ${action} ${SHA}`,
     path: dispatch.path, event: 'workflow_dispatch', head_branch: 'main',
     head_sha: WORKFLOW_SHA, repository: REPOSITORY, head_repository: REPOSITORY,
     status: 'in_progress', conclusion: null, display_title: `Castiq ${environment} ${action} ${SHA}`,
@@ -185,6 +185,12 @@ test('rejects same-name dispatch workflows from another path, disabled workflows
 });
 
 test('binds the requested SHA to GitHub stored run-name and refuses replayed or stale manual runs', async () => {
+  // Match the live Actions API: workflow.name is static, while a dispatched
+  // run's name and display_title both contain the resolved run-name inputs.
+  const live = fixture();
+  assert.notEqual(live.dispatchRun.name, live.routes.get(live.paths.dispatch).name);
+  assert.equal(live.dispatchRun.name, live.dispatchRun.display_title);
+  await admitRelease(live.input);
   for (const change of [
     { id: 701 }, { run_attempt: 2 }, { status: 'completed', conclusion: 'success' },
     { status: 'queued' }, { conclusion: 'cancelled' },
@@ -193,9 +199,13 @@ test('binds the requested SHA to GitHub stored run-name and refuses replayed or 
     await refused(f, 'dispatch-run-not-current');
   }
   for (const title of [`Castiq staging build ${MAIN_SHA}`, `Castiq staging activate ${SHA}`, `Castiq staging build ${SHA} extra`]) {
-    const f = fixture(); f.routes.set(f.paths.dispatchRun, { ...f.dispatchRun, display_title: title });
+    const f = fixture(); f.routes.set(f.paths.dispatchRun, { ...f.dispatchRun, name: title, display_title: title });
     await refused(f, 'dispatch-input-sha-mismatch');
   }
+  const changed = fixture(); let reads = 0;
+  changed.routes.set(changed.paths.dispatchRun, () => ++reads === 1 ? changed.dispatchRun
+    : { ...changed.dispatchRun, name: `Castiq production build ${SHA}`, display_title: `Castiq production build ${SHA}` });
+  await refused(changed, 'dispatch-run-not-current');
 });
 
 test('pins the real CI workflow identity and exact reviewed source bytes', async () => {

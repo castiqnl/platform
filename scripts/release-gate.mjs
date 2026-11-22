@@ -86,7 +86,10 @@ function runMatches(run, workflow, event, sha) {
   return positiveInteger(run?.id)
     && positiveInteger(run.run_attempt)
     && run.workflow_id === workflow.id
-    && run.name === workflow.name
+    // GitHub returns run-name as both name and display_title for dispatched
+    // runs. The workflow identity is checked by ID/path; admitRelease binds
+    // this stored title to the exact environment, action and requested SHA.
+    && (event === 'workflow_dispatch' ? run.name === run.display_title : run.name === workflow.name)
     && run.path === workflow.path
     && run.event === event
     && run.head_branch === RELEASE_POLICY.branch

@@ -80,6 +80,20 @@ def regular_tree(root):
                 require(resolved.is_relative_to(base), 'Artifact link escapes build directory')
                 require(resolved.is_file(), 'Only internal file links are supported')
 
+def copy_runtime_artifact(source, artifact):
+    """Package the application and its explicit runtime documentation dependency."""
+    artifact.mkdir()
+    for name in ['dist', 'server', 'src', 'shared', 'emails', 'scripts', 'database', 'node_modules', 'package.json', 'package-lock.json', '.nvmrc']:
+        item = source / name
+        if item.is_dir():
+            shutil.copytree(item, artifact / name, symlinks=False)
+        else:
+            shutil.copyfile(item, artifact / name)
+    # server/workflow.ts loads this file relative to its module at startup.
+    # Other handover/legal documentation is not part of the server runtime.
+    (artifact / 'docs').mkdir()
+    shutil.copyfile(source / 'docs/ASSET-MANIFEST.json', artifact / 'docs/ASSET-MANIFEST.json')
+
 def extract_source(archive, target):
     with tarfile.open(archive) as source:
         members = source.getmembers()
@@ -215,13 +229,7 @@ def build(sha, run_id, payload):
             staging.mkdir(mode=0o700)
             try:
                 artifact = staging / 'artifact'
-                artifact.mkdir()
-                for name in ['dist', 'server', 'src', 'shared', 'emails', 'scripts', 'database', 'node_modules', 'package.json', 'package-lock.json', '.nvmrc']:
-                    item = source / name
-                    if item.is_dir():
-                        shutil.copytree(item, artifact / name, symlinks=False)
-                    else:
-                        shutil.copyfile(item, artifact / name)
+                copy_runtime_artifact(source, artifact)
                 metadata = {'candidateId': candidate_id, 'sha': sha, 'configId': config_id, 'runId': run_id, 'environment': ENVIRONMENT, 'siteId': SITE_ID, 'node': '24.18.0', 'npm': '11.16.0', 'ci': admission, 'publicationMode': 'sandbox-only', 'databaseCompatibility': 'castiq-schema-v8'}
                 (staging / 'release.json').write_text(json.dumps(metadata, indent=2) + '\n')
                 app = pwd.getpwnam(APP_USER)
@@ -337,8 +345,9 @@ def activate(sha, run_id, payload, candidate_id, runtime_id):
             if previous:
                 atomic_link('previous', previous)
         except Exception:
-            if worker_active:
-                run(['/usr/bin/systemctl', 'stop', SITE_ID + '-worker.service'])
+            # A first activation can start (or partially start) its worker before
+            # metadata fails. Always stop the attempted pair's worker first.
+            run(['/usr/bin/systemctl', 'stop', SITE_ID + '-worker.service'])
             if previous:
                 atomic_link('current', previous)
                 run(['/usr/bin/systemctl', 'restart', SITE_ID + '.service'])
