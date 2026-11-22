@@ -73,7 +73,7 @@ Voor activatie moet een beheerder de werkelijke controles hebben uitgevoerd en `
 
 Dit zijn bewijsvelden, geen vervanging voor tests. Verifieer migratiechecksums met het kandidaatartifact, de beperkte DB-verbinding met TLS/hostnamecontrole, werkelijk versleutelde backup en geïsoleerd herstel, ongeautoriseerde API-weigering, juiste account-/tenantgrenzen en de root-only unitgebonden isolatiemarkering. Een ontbrekend extern e-mailbewijs blijft afzonderlijk open; app-readiness bewijst geen mailaflevering of echte socialpublicatie.
 
-[AUTH-EN-MAIL.md](AUTH-EN-MAIL.md) bevat de afzonderlijke noodzakelijke Auth-URL/OTP/templateconfiguratie. Gegevensafhankelijke migraties vereisen vooraf backup en compatibiliteitsbeoordeling. Runtime heeft geen migratierecht; pas de gereviewde SQL via de geautoriseerde Supabase-verbinding toe. Reeds toegepaste SQL-bestanden wijzigen is verboden. Ruwe productiedata worden niet in tests geladen.
+[AUTH-EN-MAIL.md](AUTH-EN-MAIL.md) bevat de afzonderlijke noodzakelijke Auth-URL/OTP/templateconfiguratie. De gebruiker stelt deze zelf in via het Supabase-dashboard; de exports zijn nog niet toegepast of extern geverifieerd. De Castiq Resend API-sleutel ontbreekt nog en wordt later via platformbeheer ingevoerd. Gegevensafhankelijke migraties vereisen vooraf backup en compatibiliteitsbeoordeling. Runtime heeft geen migratierecht; pas de gereviewde SQL via de geautoriseerde Supabase-verbinding toe. Reeds toegepaste SQL-bestanden wijzigen is verboden. Ruwe productiedata worden niet in tests geladen.
 
 De gebruiker heeft stagingactivatie in deze taak geautoriseerd. **Publieke productieactivatie is een afzonderlijke opdracht.** Een productiekandidaat en gecontroleerde inrichting zijn daarvan gescheiden resultaten.
 
@@ -104,9 +104,13 @@ De marketing-/juridische pagina’s zijn publiek; alle persoonlijke en clubgegev
 Bekijk eerst root-only `pair.json` van huidige en vorige gezonde release. Rollback wisselt app én runtime samen, alleen binnen dezelfde vastgelegde databasecompatibiliteit. Een schemawijziging wordt niet teruggedraaid door een symlinkwissel. Beoordeel afwijkende schema’s apart; restore is een gequarantaineerde procedure met replay van de onafhankelijke wisledger vóór vrijgave.
 
 ```sh
-# Alleen als geautoriseerde hostbeheerder; de runner heeft geen algemene sudo.
-sudo /usr/local/libexec/castiq-vps08-staging/release.py rollback VORIGE_GEZONDE_RELEASE_ID
+# Alleen als geautoriseerde hostbeheerder op dg-vps-08.
+# Rootcontext zonder de oorspronkelijke SUDO_USER; de runner heeft dit recht niet.
+sudo -n env -u SUDO_USER \
+  /usr/local/libexec/castiq-vps08-staging/release.py rollback VORIGE_GEZONDE_RELEASE_ID
 ```
+
+Een gewone `sudo ... release.py rollback` vanuit het `codex`-account houdt `SUDO_USER=codex` en wordt bewust geweigerd. Bovenstaande opdracht vereist afzonderlijk bevoegde beheerdersrechten; zij verleent de runner geen extra rechten. Gebruik voor een later afzonderlijk geautoriseerde productierollback het productiepad.
 
 De helper serialiseert rollback met activatie, controleert beheerde paden, gezondmarkering en compatibiliteit, stopt alleen de eigen worker, wisselt het paar en voert opnieuw health/readiness uit. Bewaar het huidige paar voor onderzoek. Uploads en wisledger worden niet teruggezet of verwijderd.
 

@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -281,6 +282,31 @@ def healthy(sha):
          '-p', 'NoNewPrivileges=yes', '-p', 'ProtectSystem=strict', '-p', 'ProtectHome=yes', '-p', 'PrivateTmp=yes',
          '-p', 'LogNamespace=' + SITE_ID, '-p', 'RuntimeMaxSec=90', NODE, TRUSTED / 'healthcheck.mjs', sha, str(PORT)])
 
+def start_worker():
+    """Require a real process to remain running after systemd accepted its start."""
+    unit = SITE_ID + '-worker.service'
+    run(['/usr/bin/systemctl', 'start', unit])
+    stable = 0
+    previous_pid = None
+    for attempt in range(8):
+        result = subprocess.run(['/usr/bin/systemctl', 'show', unit, '--property=ActiveState', '--property=SubState', '--property=MainPID'],
+                                capture_output=True, text=True, timeout=5)
+        require(result.returncode == 0, 'Worker startup status unavailable')
+        state = dict(line.split('=', 1) for line in result.stdout.splitlines() if '=' in line)
+        process = state.get('MainPID', '')
+        if state.get('ActiveState') == 'active' and state.get('SubState') == 'running' and process.isdecimal() and int(process) > 0:
+            stable = stable + 1 if process == previous_pid else 1
+            previous_pid = process
+            if stable == 3:
+                return
+        else:
+            stable = 0
+            previous_pid = None
+            require(state.get('ActiveState') not in ('inactive', 'failed'), 'Worker exited during startup')
+        if attempt < 7:
+            time.sleep(1)
+    raise ValueError('Worker did not remain running during bounded startup check')
+
 def activate(sha, run_id, payload, candidate_id, runtime_id):
     candidate = SITE / 'candidates' / identifier(candidate_id)
     require(candidate.is_dir() and not candidate.is_symlink(), 'Candidate not found')
@@ -338,8 +364,8 @@ def activate(sha, run_id, payload, candidate_id, runtime_id):
             atomic_link('current', release)
             run(['/usr/bin/systemctl', 'restart', SITE_ID + '.service'])
             healthy(sha)
-            run(['/usr/bin/systemctl', 'start', SITE_ID + '-worker.service'])
-            (release / 'healthy.json').write_text(json.dumps({'sha': sha, 'runtimeConfigId': runtime_id, 'checks': ['loopback-health'], 'publicAcceptance': False}) + '\n')
+            start_worker()
+            (release / 'healthy.json').write_text(json.dumps({'sha': sha, 'runtimeConfigId': runtime_id, 'checks': ['loopback-health', 'readiness', 'worker-running'], 'publicAcceptance': False}) + '\n')
             os.chmod(release / 'healthy.json', 0o440)
             os.chown(release / 'healthy.json', 0, app.pw_gid)
             if previous:
@@ -353,7 +379,7 @@ def activate(sha, run_id, payload, candidate_id, runtime_id):
                 run(['/usr/bin/systemctl', 'restart', SITE_ID + '.service'])
                 healthy(json.loads((previous / 'pair.json').read_text())['sha'])
                 if worker_active:
-                    run(['/usr/bin/systemctl', 'start', SITE_ID + '-worker.service'])
+                    start_worker()
             else:
                 run(['/usr/bin/systemctl', 'stop', SITE_ID + '.service'])
                 if current.is_symlink() and current.resolve() == release:
@@ -384,7 +410,7 @@ def rollback(release_id):
             run(['/usr/bin/systemctl', 'restart', SITE_ID + '.service'])
             healthy(json.loads((target / 'pair.json').read_text())['sha'])
             if worker_active:
-                run(['/usr/bin/systemctl', 'start', SITE_ID + '-worker.service'])
+                start_worker()
             atomic_link('previous', current)
         except Exception:
             if worker_active:
@@ -393,7 +419,7 @@ def rollback(release_id):
             run(['/usr/bin/systemctl', 'restart', SITE_ID + '.service'])
             healthy(json.loads((current / 'pair.json').read_text())['sha'])
             if worker_active:
-                run(['/usr/bin/systemctl', 'start', SITE_ID + '-worker.service'])
+                start_worker()
             atomic_link('previous', target)
             raise
     print('Previous app/config pair restored; database and external state unchanged')

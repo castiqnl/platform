@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
+import {realpathSync} from 'node:fs';
 import {unlink} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {LEGAL_DOCUMENTS} from '../shared/legalDocuments.ts';
@@ -48,7 +49,12 @@ export async function runSandboxTick(pool:pg.Pool,options:SandboxTickOptions={})
   await persistHistory(finish,workerActor(claim.clubId),before,state,claim.reconcile?'worker.reconciled':'worker.awaiting_confirmation',{id:item.id},job.id,correlationId);await finish.query('UPDATE castiq.workspaces SET state=$1,version=$2,updated_at=now() WHERE club_id=$3',[JSON.stringify(state),Number(version)+1,claim.clubId]);await finish.query('COMMIT');return {claimed:true,jobId:job.id,reconciled:claim.reconcile,status:next.jobs.find((j:any)=>j.id===job.id).status};
  }catch(error){await finish.query('ROLLBACK');throw error;}finally{finish.release();}
 }
-if(process.argv[1]===fileURLToPath(import.meta.url)){
+// Deployments execute through current -> releases/<sha>; Node resolves import.meta.url to the real file.
+function isWorkerEntrypoint(){
+ if(!process.argv[1])return false;
+ try{return realpathSync(process.argv[1])===realpathSync(fileURLToPath(import.meta.url));}catch{return false;}
+}
+if(isWorkerEntrypoint()){
  const {configuration,errors}=validateRuntimeConfiguration(process.env);if(errors.length)throw new Error(errors.join('\n'));
  const pool=createManagedPool({connectionString:process.env.DATABASE_URL,max:3,connectionTimeoutMillis:5000});let stopped=false,nextPrivacy=0;
  const mailOptions={origin:configuration.CASTIQ_APP_ORIGIN,environment:process.env.APP_ENV||'local',encryptionKey:process.env.MAIL_ENCRYPTION_KEY};

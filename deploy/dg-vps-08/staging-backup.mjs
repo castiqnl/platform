@@ -46,8 +46,8 @@ async function create(runtimeId){demand(identifier.test(runtimeId||''));for(cons
   console.log(JSON.stringify({backupId,encrypted:true,schema:'castiq',tables:counts.length,rows:counts.reduce((sum,row)=>sum+row.count,0),uploads:manifest.uploads.length,registered:true,providerRetentionVerified:false}));
  }finally{if(!committed)await db.query('ROLLBACK').catch(()=>{});await db.end();}}
 
-try{demand(process.geteuid()===0&&['castiq-vps08-staging','castiq-vps08-production'].includes(site)&&allowed.includes(operation));
- if(operation==='create'&&mode!=='--locked'){const child=spawn('/usr/bin/flock',['--nonblock',config+'/activation.lock',process.execPath,fileURLToPath(import.meta.url),'create',id,'--locked'],{stdio:'inherit'});child.on('exit',code=>process.exit(code??1));}
+try{process.umask(0o077);demand(process.geteuid()===0&&['castiq-vps08-staging','castiq-vps08-production'].includes(site)&&allowed.includes(operation));
+ if(operation==='create'&&mode!=='--locked'){const handle=await open(config+'/activation.lock',constants.O_CREAT|constants.O_RDWR|constants.O_NOFOLLOW,0o600);try{const info=await handle.stat();demand(info.isFile()&&info.uid===0&&info.nlink===1&&(info.mode&0o777)===0o600);}finally{await handle.close();}const child=spawn('/usr/bin/flock',['--nonblock',config+'/activation.lock',process.execPath,fileURLToPath(import.meta.url),'create',id,'--locked'],{stdio:'inherit'});child.on('exit',code=>process.exit(code??1));}
  else if(operation==='create')await create(id);
  else{const manifest=await manifestFor(id),key=await backupKey();
   if(operation==='manifest')process.stdout.write(JSON.stringify(manifest));

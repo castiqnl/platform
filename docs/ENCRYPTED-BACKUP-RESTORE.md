@@ -34,15 +34,15 @@ sudo /opt/dg-toolchains/castiq-vps08-staging/node-v24.18.0-linux-x64/bin/node \
 # Noteer uitsluitend de gerapporteerde backup-ID, geen inhoud of credentials.
 sudo /opt/dg-toolchains/castiq-vps08-staging/node-v24.18.0-linux-x64/bin/node \
   /usr/local/libexec/castiq-vps08-staging/backup/staging-backup.mjs \
-  verify <backup-ID>
+  verify BACKUP_ID
 
 # Op de development-VPS: alleen een eigen tijdelijke restorecontainer.
-python3 -B scripts/verify-staging-backup.py <backup-ID> --environment staging
+python3 -B scripts/verify-staging-backup.py BACKUP_ID --environment staging
 ```
 
 Gebruik voor production de overeenkomstige eigen paden en `--environment production`. De verificatie leest de private metadata via SSH, maakt alleen niet-inlogbare beleidsrollen in haar verse tijdelijke cluster, herstelt de geauthenticeerde stream en vergelijkt iedere tabel met de snapshotcounts en inhoudchecksums. Daarna schrijft zij root-only `restore-verified.json` bij die backup. Geen herstelstap richt zich op de actieve staging- of productiondatabase.
 
-De eigen tooling gebruikt pg_dump17.11 uit de al aanwezige, gepinde Castiq-PostgreSQL-image, Node `24.18.0`, de vastgelegde `pg`-dependency `8.23.1` en de officiële Supabase-CA. Alleen eigen root-owned bestanden zijn onder het backupinstallatiepad toegevoegd; geen gedeelde pakketten of configuratie zijn vervangen. TLS gebruikt `verify-full`, met het meegeleverde CA-bestand op een absoluut eigen pad. De restore-image is de officiële Linuxamd64 PostgreSQL17.12-image, digest `sha256:8d174ddfb292f26b6ec8d97f55d944ccab547fa8bfe9e4fd3c24afdc819ee423`.
+De export gebruikt de eigen hostbinary `backup/bin/pg_dump`, geverifieerd als `17.11 (Debian 17.11-1.pgdg12+2)`, uit de al aanwezige gepinde Castiq-PostgreSQL-image. De overige eigen tooling gebruikt Node `24.18.0`, de vastgelegde `pg`-dependency `8.23.1` en de officiële Supabase-CA. De geslaagde herstelproef gebruikt afzonderlijk `pg_restore` in de hieronder gepinde PostgreSQL 17.12-container. Alleen eigen root-owned bestanden zijn onder het backupinstallatiepad toegevoegd; geen gedeelde pakketten of configuratie zijn vervangen. TLS gebruikt `verify-full`, met het meegeleverde CA-bestand op een absoluut eigen pad. De restore-image is de officiële Linuxamd64 PostgreSQL17.12-image, digest `sha256:8d174ddfb292f26b6ec8d97f55d944ccab547fa8bfe9e4fd3c24afdc819ee423`.
 
 De oudere lokale PG17.11-server weigerde de nieuwe bronmetadataoptie `pg_attver`. Die versiegrens is beschreven in de [officiële PostgreSQL-backpatch van 9 november 2026](https://www.postgresql.org/message-id/E1xQQG1-000000003jI-2cdw@gemulon.postgresql.org). De uiteindelijke herstelproef gebruikte daarom de expliciet gepinde PG17.12-container; bestaande lokale containers, images en hun verwijzingen bleven ongemoeid.
 

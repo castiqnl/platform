@@ -145,7 +145,14 @@ class ReleaseBoundaryTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(release.os, 'chown'))
             stack.enter_context(mock.patch.object(release.os, 'chmod'))
             stack.enter_context(mock.patch.dict(release.os.environ, {'SUDO_USER': 'root'}))
-            stack.enter_context(mock.patch.object(release.subprocess, 'run', side_effect=lambda *args, **kwargs: types.SimpleNamespace(returncode=0 if state.worker else 3)))
+            def service_status(parts, **options):
+                if str(parts[1]) == 'show':
+                    active = state.worker
+                    return types.SimpleNamespace(returncode=0, stdout='ActiveState=' + ('active' if active else 'inactive') + '\nSubState=' + ('running' if active else 'dead') + '\nMainPID=' + ('1234' if active else '0') + '\n')
+                return types.SimpleNamespace(returncode=0 if state.worker else 3)
+            fixture.service_status = service_status
+            fixture.status = stack.enter_context(mock.patch.object(release.subprocess, 'run', side_effect=service_status))
+            stack.enter_context(mock.patch.object(release.time, 'sleep'))
             fixture.run = stack.enter_context(mock.patch.object(release, 'run', side_effect=command))
             fixture.gate = stack.enter_context(mock.patch.object(release, 'gate', return_value={}))
             fixture.healthy = stack.enter_context(mock.patch.object(release, 'healthy'))
@@ -180,7 +187,9 @@ class ReleaseBoundaryTests(unittest.TestCase):
                         self.assertIn('new-private-password', (fixture.new / 'runtime.env').read_text())
                         self.assertNotIn('new-private-password', (fixture.new / 'pair.json').read_text() + fixture.stdout.getvalue())
                         self.assertEqual((fixture.old / 'runtime.env').read_text(), old_environment)
-                        self.assertFalse(json.loads((fixture.new / 'healthy.json').read_text())['publicAcceptance'])
+                        healthy_metadata = json.loads((fixture.new / 'healthy.json').read_text())
+                        self.assertFalse(healthy_metadata['publicAcceptance'])
+                        self.assertEqual(healthy_metadata['checks'], ['loopback-health', 'readiness', 'worker-running'])
                 finally:
                     self.base = original_base
 
@@ -315,6 +324,73 @@ class ReleaseBoundaryTests(unittest.TestCase):
             self.assertFalse(fixture.state.worker)
             self.assertFalse(fixture.state.app)
             self.assertFalse((fixture.site / 'current').is_symlink())
+
+    def test_worker_exit_after_successful_start_refuses_first_activation_and_stops_app(self):
+        with self.transaction(existing=False, worker=False) as fixture:
+            checks = 0
+            def exits_after_start(parts, **options):
+                nonlocal checks
+                if str(parts[1]) == 'show':
+                    checks += 1
+                    if checks == 2:
+                        fixture.state.worker = False
+                return fixture.service_status(parts, **options)
+            fixture.status.side_effect = exits_after_start
+            with self.assertRaisesRegex(ValueError, 'Worker exited'):
+                fixture.activate()
+            self.assertEqual(checks, 2)
+            self.assertFalse(fixture.state.worker)
+            self.assertFalse(fixture.state.app)
+            self.assertFalse((fixture.site / 'current').is_symlink())
+            self.assertFalse((fixture.new / 'healthy.json').exists())
+
+    def test_worker_exit_rolls_back_to_previous_pair_and_verifies_its_worker(self):
+        with self.transaction() as fixture:
+            new_checks, old_checks = 0, 0
+            def exits_for_new_pair(parts, **options):
+                nonlocal new_checks, old_checks
+                if str(parts[1]) == 'show':
+                    if (fixture.site / 'current').resolve() == fixture.new:
+                        new_checks += 1
+                        if new_checks == 2:
+                            fixture.state.worker = False
+                    else:
+                        old_checks += 1
+                return fixture.service_status(parts, **options)
+            fixture.status.side_effect = exits_for_new_pair
+            with self.assertRaisesRegex(ValueError, 'Worker exited'):
+                fixture.activate()
+            self.assertEqual((new_checks, old_checks), (2, 3))
+            self.assert_restored(fixture)
+            self.assertFalse((fixture.new / 'healthy.json').exists())
+            self.assertEqual([call.args[0] for call in fixture.healthy.call_args_list], [fixture.sha, fixture.old_sha])
+
+    def test_worker_start_requires_stable_running_pid_and_has_bounded_wait(self):
+        for active, substate, pid in [('activating', 'start', '0'), ('active', 'exited', '1234'), ('active', 'running', '0')]:
+            with self.subTest(active=active, substate=substate, pid=pid), mock.patch.object(release, 'run') as start, mock.patch.object(release.subprocess, 'run') as status, mock.patch.object(release.time, 'sleep') as sleep:
+                status.return_value = types.SimpleNamespace(returncode=0, stdout=f'ActiveState={active}\nSubState={substate}\nMainPID={pid}\n')
+                with self.assertRaisesRegex(ValueError, 'bounded startup'):
+                    release.start_worker()
+                start.assert_called_once_with(['/usr/bin/systemctl', 'start', 'castiq-vps08-staging-worker.service'])
+                self.assertEqual(status.call_count, 8)
+                self.assertEqual(sleep.call_count, 7)
+                self.assertTrue(all(call.kwargs['timeout'] == 5 for call in status.call_args_list))
+
+    def test_worker_restarts_cannot_count_as_three_observations_of_one_stable_process(self):
+        with mock.patch.object(release, 'run'), mock.patch.object(release.subprocess, 'run') as status, mock.patch.object(release.time, 'sleep') as sleep:
+            def running(pid):
+                return types.SimpleNamespace(returncode=0, stdout=f'ActiveState=active\nSubState=running\nMainPID={pid}\n')
+            status.side_effect = [running(pid) for pid in range(100, 108)]
+            with self.assertRaisesRegex(ValueError, 'bounded startup'):
+                release.start_worker()
+            self.assertEqual(status.call_count, 8)
+            self.assertEqual(sleep.call_count, 7)
+            status.reset_mock()
+            sleep.reset_mock()
+            status.side_effect = [running(pid) for pid in [100, 100, 200, 200, 200]]
+            release.start_worker()
+            self.assertEqual(status.call_count, 5)
+            self.assertEqual(sleep.call_count, 4)
 
     def test_rollback_rechecks_previous_after_lock_and_refuses_changed_target(self):
         def replace_previous(fixture):
