@@ -1,6 +1,6 @@
 # Castiq UI integratie en stagingacceptatie
 
-De interface uit het overdrachtspakket is geïntegreerd op werkbranch `codex/platform-ui-integration`, vanaf `d1513d7eda83db2a0a7583ce31d300d2a5eda606`. Cockpit, verenigingenbeheer, Template Studio, kanaalbeheer en pakketkeuze gebruiken centrale servergegevens. Echte socialpublicatie en financiële verwerking blijven uitgeschakeld. Deze wijziging is nog geen geactiveerde stagingrelease.
+De interface uit het overdrachtspakket is via PR #2 op `main` geïntegreerd en op 23 november 2026 naar **[staging.castiq.nl](https://staging.castiq.nl)** uitgerold. Actieve applicatie-SHA: **`4c39c3a6cf099ff6655b29cee15c67712bb4c14a`**. Cockpit, verenigingenbeheer, Template Studio, kanaalbeheer en pakketkeuze gebruiken centrale servergegevens. Echte socialpublicatie, financiële verwerking en definitieve automatische privacywissing blijven uitgeschakeld. Productie is ongewijzigd.
 
 ## Herkomst en behouden contracten
 
@@ -14,10 +14,10 @@ De bestaande Vite-configuratie, dependencylockfile, vier publieke buildvariabele
 
 | Onderdeel | Werking in servermodus | Open afhankelijkheid |
 | --- | --- | --- |
-| Compacte shell en cockpit | Eigen overzicht; brongewijze tellingen en aandachtspunten uit `/api/admin/operations`. Nul, onbekend en eerdere gegevens bij een verversfout blijven onderscheidbaar. | Migraties en beperkte runtimegrants op de doelomgeving. |
+| Compacte shell en cockpit | Eigen overzicht; brongewijze tellingen en aandachtspunten uit `/api/admin/operations`. Nul, onbekend en eerdere gegevens bij een verversfout blijven onderscheidbaar. | Migraties en beperkte runtimegrants zijn op staging toegepast/gecontroleerd; ingelogde gebruikersacceptatie blijft open. |
 | Verenigingen en rechten | Bestaande aanmaak- en membership-API; aparte verenigingentabel, paginering, registratieoverzicht en behoud van invoer bij fouten. | Werkelijke accountregistratie en toestemming in staging blijven accountgebonden acceptatie. |
 | Kanaalmonitor | Alleen operationele identifiers, clubnaam, kanaal, status, revisie, poging en tijdstippen. Geen clubtekst, foto's, concepten, spelers of providerpayload. Sandboxbewijs wordt als sandbox getoond. | Echte publicatieadapter ontbreekt en wordt niet automatisch geactiveerd. |
-| Template Studio | Centrale concepten, activering, toewijzing, revisiecontrole, audit en onveranderlijke publicaties; 27 ingebouwde SVG-stijlen en vier canvasformaten. Serverfouten openen geen lokale vervangbibliotheek. | Migratie 009 en eerste centrale initialisatie. Initialisatie is idempotent en gebeurt vóór gebruik. |
+| Template Studio | Centrale concepten, activering, toewijzing, revisiecontrole, audit en onveranderlijke publicaties; 27 ingebouwde SVG-stijlen en vier canvasformaten. Serverfouten openen geen lokale vervangbibliotheek. | Staging is centraal geïnitialiseerd: 27 templates, 27 versies, 108 layouts; alle 108 partnerlagen zijn read-only gecontroleerd. Ingelogde Studio-acceptatie blijft open. |
 | Clubtemplates en bijdragen | Alleen actieve, toegewezen templates in nieuwe keuzes; server selecteert en valideert het ontwerp. Een bijdrage bewaart haar eigen templateversie en layouts. Oudere bijdragen blijven bruikbaar na uitschakelen, herpubliceren of intrekken van toewijzing. | Bestaande bijdragen zonder managed snapshot behouden hun bestaande renderpad; geen stilzwijgende historische migratie. |
 | Partnerlaag | Bij openen, opslaan en publiceren opnieuw beschermd: vaste geometrie, vergrendeld, bovenaan, niet groepeerbaar of verwijderbaar. Clubuitvoer gebruikt de vastgelegde `partnerLogo`-keuze. | Nieuwe branding geldt vanaf nieuwe bijdragen, niet met terugwerkende kracht. |
 | Kanalen | Clubgebonden, servergestuurde OAuth voor Instagram Login, Facebook Pages en X. Eenmalige state, browsernonce, X PKCE, versleutelde tijdelijke en actieve tokens, expliciete accountselectie, statuscontrole, intrekken en herverbinden. | Providerapps, goedgekeurde scopes, callbacks en geheime configuratie. Geen werkelijke providerverbinding is in deze opdracht bewezen. |
@@ -42,7 +42,7 @@ De browserproeven gebruiken een wegwerpdatabase op localhost met uitsluitend syn
 | Studio-interactie en exports | `tests/browser/templateStudio.spec.ts`. | Geslaagd in de volledige browserronde. Centrale opslag en herladen, groeperen, vergrendelen, laagvolgorde, effecten, resize en publicatie; bestaande PNG/SVG-export in alle vier formaten. |
 | Assets en juridische archieven | `npm run verify:assets`, `npm run verify:legal`, `npm run build`. | 50 assethashes en drie exacte juridische teksten gecontroleerd; Vite-build geslaagd; ook een lokale staging-build met fictieve publieke authwaarden slaagt. Die laatste is geen inzetbaar stagingartifact. |
 
-Afgeronde lokale acceptatie: beide TypeScript-controles, 34 domein-/model-/renderproeven, 95 servertests, 30 browserproeven, 24 Node-releasechecks en 40 Python-releasechecks geslaagd. De volledige browserronde duurde 1,4 minuut. Ook de asset-, juridische, generator- en buildcontroles slagen. De precieze branch-SHA is via `git rev-parse codex/platform-ui-integration` vast te leggen; pas de uiteindelijke main-SHA kan voor release worden toegelaten. Lokale screenshots en browsertraces staan onder `.local/evidence/` en `test-results/`; zij zijn geen opname van de stagingomgeving.
+Afgeronde lokale acceptatie: beide TypeScript-controles, 34 domein-/model-/renderproeven, 95 servertests, 30 browserproeven, 24 Node-releasechecks en 40 Python-releasechecks geslaagd. De volledige browserronde duurde 1,4 minuut. Ook de asset-, juridische, generator- en buildcontroles slagen. De volledige push-CI op de uiteindelijke main-SHA `4c39c3a6cf099ff6655b29cee15c67712bb4c14a` is geslaagd en voor deze release toegelaten. Lokale screenshots en browsertraces onder `.local/evidence/` en `test-results/` blijven bewijs van lokale proeven; de afzonderlijke anonieme stagingcontroles staan hieronder.
 
 ## Providervereisten gecontroleerd op 23 november 2026
 
@@ -58,35 +58,30 @@ Benodigde private servernamen zijn `CHANNEL_TOKEN_ENCRYPTION_KEY` en per provide
 
 De bestaande root-owned releasehelper accepteert momenteel uitsluitend de bestaande runtimevariabelen en `PRIVACY_RETENTION_EXECUTE`. Deze bronintegratie verandert dat toelatingscontract niet. Werkelijke providerconfiguratie op de VPS vereist eerst een afzonderlijk gereviewde uitbreiding van die private runtime-toelating en de bijbehorende hosthelper; extra GitHub-buildvariabelen zijn daarvoor niet bedoeld. Zonder die uitbreiding blijven koppelingen zichtbaar ongeconfigureerd en geblokkeerd.
 
-## Huidige staging en eerstvolgende release
+## Uitgevoerde staginguitrol op 23 november 2026
 
-Readonly gecontroleerd op 23 november 2026: `https://staging.castiq.nl/api/health` en `/api/readiness` zijn gezond voor bestaande SHA `f38e8f77963761157315accfb6d96140f0cae9bb`. Niet-aangemeld verenigingenbeheer geeft 401. Staging heeft migraties 001–008, één club, twee accounts, één clubrol en één platformrol; een teamrol en expliciet aangemerkte synthetische kanaaltestaccounts ontbreken. De mail-API is ongeconfigureerd. Deze controle wijzigt geen accounts of database.
+De eigenaar heeft de staginguitrol afzonderlijk opgedragen. De exacte-SHA-procedure uit [DG-RELEASE.md](DG-RELEASE.md) is gevolgd; het [uitrolbewijs](deploy-evidence/staging-release-2026-11-23.json) bevat de resultaten. Productie behoudt de bestaande niet-geactiveerde kandidaat `f38e8f77963761157315accfb6d96140f0cae9bb` en migraties 001–008.
 
-Volg [DG-RELEASE.md](DG-RELEASE.md) voor iedere stap:
+| Stap | Werkelijk resultaat |
+| --- | --- |
+| Main-integratie en CI | PR #2 geïntegreerd op `4c39c3a6cf099ff6655b29cee15c67712bb4c14a`; push-CI [45262829146](https://github.com/castiqnl/platform/actions/runs/45262829146) geslaagd. |
+| Verse backup vóór migratie | Versleutelde stagingbackup `backup-1a2fe4bd-5e7f-4741-9bae-8deb74f3dfc5` daadwerkelijk geïsoleerd hersteld: 31 geback-upte tabellen, 32 rijen, alle inhoudchecksums gelijk. De controlplane-operatiesleuteltabel blijft volgens het bestaande contract uitgesloten. |
+| Database | Migraties 009 en 010 op uitsluitend staging toegepast; alle tien migratiechecksums met het artifact vergeleken. Staging heeft 42 tabellen, alle met RLS; beperkte runtimegrants gecontroleerd. |
+| Kandidaatbuild | [45263874016](https://github.com/castiqnl/platform/actions/runs/45263874016) geslaagd; kandidaat `4c39c3a6cf099ff6655b29cee15c67712bb4c14a-45263874016-1`. |
+| Kandidaatproef | Tijdelijke API en worker onder de beperkte runtime-identiteit: health/readiness200 op exacte SHA, privé-API401, fixture-login405, verkeerde JWT401, lege wachtrijen, stabiele worker, privacy-dry-run en opruimen geslaagd. Centrale initialisatie onder de runtime-rol geslaagd. |
+| Templates en pakketten | 27 templates en 27 onveranderlijke versies, samen 108 layouts; alle 108 partnerlagen afzonderlijk read-only gecontroleerd. Vier centrale pakketten; facturatie niet geactiveerd. |
+| Activatie | [45264399989](https://github.com/castiqnl/platform/actions/runs/45264399989) geslaagd met runtimeprofiel `initial-20261122`. Actief paar: `4c39c3a6cf099ff6655b29cee15c67712bb4c14a-45263874016-1-initial-20261122`. |
+| Vorige combinatie | `previous` bewaart `f38e8f77963761157315accfb6d96140f0cae9bb-45074332095-1-initial-20261122`. Geen live rollback uitgevoerd. |
+| Publieke controle na activatie | HTTPS health/readiness200 op de nieuwe SHA. Anonieme API-verzoeken naar workspace, clubs, templates, cockpit, pakketten en kanalen geven 401. |
+| Desktop en mobiel | Anonieme read-only browserronde geslaagd: publieke website, afgeschermde platformroute met echte login, zeven juridische routes en drie exacte downloadhashes. Geen horizontale overflow, console-/paginafouten of mislukte verzoeken. Geen identiteit aangemaakt of formulier ingediend. |
+| Omgevingsgrenzen | Fabelpad-PIDs/current-links en health, Caddy-PID en proxyhashes zijn voor/na gelijk. Castiq-productie blijft inactive/disabled zonder current-link. |
 
-1. Review en integreer deze werkbranch op `main`. Leg de volledige 40-tekens SHA van het resultaat vast. De branch-SHA is niet automatisch de uiteindelijke main-SHA.
-2. Wacht op de nieuwste **push**-CI `Castiq local acceptance`, job `verify`, op exact die main-SHA. Iedere voorgeschreven stap moet `completed/success` zijn. Een groene branch-/PR-run is geen release-toelating.
-3. Bouw uitsluitend een stagingkandidaat:
+Het bestaande compatibiliteitslabel `castiq-schema-v8` is behouden; migraties 009–010 zijn een additieve uitbreiding. De vorige gezonde app is op een geïsoleerd uitgebreid schema met 13 compatibiliteitscontroles beproefd. Dat bewijst structurele compatibiliteit, geen volledige gedragsgelijkheid: oude code neemt nieuwe managed snapshots niet op in alle nieuw aangemaakte revisies/wachtrijtaken en kent de nieuwe intrekkingscontrole niet. Bij noodterugkeer na nieuwe managed activiteit moeten de worker en clubschrijfacties worden gepauzeerd/beperkt totdat de juiste code hersteld is. Een code-rollback draait deze migraties niet terug; er is geen live rollback als test uitgevoerd.
 
-   ```sh
-   gh workflow run castiq-dg-vps-08-staging-build.yml \
-     --repo castiqnl/platform --ref main \
-     -f environment=staging -f sha=VOLLEDIGE_MAIN_SHA
-   ```
+## Resterende gebruikers- en provideracceptatie
 
-4. Beoordeel migraties `009_template_library.sql` en `010_channel_plans.sql`. Gebruik de geautoriseerde stagingbeheerverbinding voor DDL; de runtime heeft geen migratierecht. Verifieer checksumtracking, bestaande data, conditional runtimegrants en RLS zonder bypass. Initialiseer de templates via de centrale API en controleer dat er 27 ingebouwde ontwerpen zijn. Bewaar een versleutelde backup en bewijs geïsoleerd herstel.
-5. Beoordeel expliciet rollbackcompatibiliteit. De bestaande releasehelper labelt kandidaten als `castiq-schema-v8`. De nieuwe migraties voegen tabellen toe; het label alleen bewijst geen compatibiliteit. Test de huidige gezonde oude app op een geïsoleerd uitgebreid schema voordat `database_migrated_and_compatible` waar wordt gezet. Verander het label of de root-owned helper niet stilzwijgend om de gate te passeren. Code-rollback draait migraties niet terug.
-6. Controleer actuele `current`/`previous` en het gezonde runtimepaar op de staginghost. Laat de rootbeheerder de bestaande `activation-readiness.json` voor de uiteindelijke SHA en het juiste runtimeprofiel invullen met werkelijk uitgevoerde backup-/restore-, private-access- en isolatiebewijzen. Een rootflag is geen vervanging voor die proeven.
-7. Activeer pas daarna uitsluitend staging:
+De geslaagde staginguitrol en anonieme browserronde bewijzen geen ingelogde gebruikersflow. De eigenaar configureert de Auth-URL/OTP/Google-instellingen en gebruikt daarvoor bestemde accounts voor platform, twee gescheiden testclubs en een teamrol. Controleer vervolgens accountregistratie, persoonlijke en clubaanvaarding, centrale templatebewerking/publicatie/toewijzing, clubkeuze en pakketmutaties op desktop en mobiel. Er zijn tijdens deze uitrol geen accounts uitgenodigd of voorwaarden namens gebruikers aanvaard.
 
-   ```sh
-   gh workflow run castiq-dg-vps-08-staging-activate.yml \
-     --repo castiqnl/platform --ref main \
-     -f environment=staging -f sha=VOLLEDIGE_MAIN_SHA \
-     -f candidate_id=GEVERIFIEERDE_KANDIDAAT_ID \
-     -f runtime_config_id=GEVERIFIEERD_RUNTIMEPROFIEL
-   ```
+Werkelijke providerapps, goedgekeurde scopes, callbacks en private runtime-toelating blijven nodig voor live kanaaltoestemming, weigeren, verlopen/reconnect, dubbele callback en intrekking. Queue/failure/timeout/retry blijven sandboxcontroles. Resend-aflevering, echte socialpublicatie, financiële verwerking en definitieve automatische privacywissing zijn niet geactiveerd of als geslaagd opgevoerd.
 
-8. Controleer HTTPS health/readiness op exact die SHA, anonieme 401, platformgrenzen en centrale template-/pakketmutaties. Gebruik een expliciete testclub, een tweede gescheiden testclub en een bevoegde teamrol. Nodig accounts alleen via de afgesproken stagingaccountprocedure uit. Test echte OTP/Google-login, mobiel en desktop. Pas na geconfigureerde providerapps volgen echte toestemming, weigeren, verlopen/reconnect, dubbele callback en intrekking met eigen testaccounts. Gebruik de sandbox voor queue, failure, timeout en retry; verwacht geen externe publicatie.
-
-Er is geen nieuwe kandidaat gebouwd of geactiveerd en productie is ongewijzigd. Main-integratie, groene push-CI, database-/rollbackbewijs, host-readiness en werkelijke stagingacceptatie staan nog open. De bestaande gezonde release kan niet als testresultaat van deze werkbranch worden opgevoerd.
+Vóór vrijgave van definitieve automatische privacywissing moet de pseudonimisering ook de actorvelden in de nieuwe audit-/eventtabellen van migraties 009–010 dekken. De bestaande wisflow dekt die velden nog niet. Werkelijke providerbewaarbewijzen blijven eveneens open; automatische wissing blijft uit.
