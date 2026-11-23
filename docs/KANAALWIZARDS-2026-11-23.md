@@ -9,9 +9,9 @@ Officiële toestemming, accountkeuze en bevestiging blijven servergestuurd. Alle
 ## Uitgevoerde controle
 
 - Beide TypeScript-controles en productiebuild geslaagd.
-- Alle acht kanaal-/pakketbrowsertests geslaagd, inclusief tenantgrenzen, exports en vertraagde workspaceverversing.
+- Alle tien kanaal-/pakketbrowsertests geslaagd, inclusief tenantgrenzen, exports en vertraagde workspaceverversing.
 - Nieuwe tests controleren alle drie de ongeconfigureerde wizards zonder OAuth-mutatie, de daadwerkelijke CSS-grid, mobiel en Escape, plus een expliciet gemockte providerflow met popup, herstel na herladen, accountkeuze, samenvatting en afzonderlijke bevestiging.
-- Een gemockte weigering biedt opnieuw proberen zonder een account te koppelen. Dit is geen bewijs van live providertoestemming.
+- Een gemockte weigering biedt opnieuw proberen zonder een account te koppelen. Ook een verlopen sessie of gelijktijdig gewijzigde koppeling keert terug naar de toestemmingsstap, behoudt het bestaande account en gebruikt bij opnieuw proberen de actuele serverversie. Dit is geen bewijs van live providertoestemming.
 - Desktop 1440 px en mobiel 390 px visueel geïnspecteerd: compacte directory, vier stappen, passende dialoog, minimaal 44 px actieknoppen en geen horizontale overflow. Lokale screenshots bevatten uitsluitend synthetische testgegevens.
 
 De Instagram-route gebruikt Instagram Login voor professionele accounts; geen fictieve Facebook-loginoptie. Gebruikte officiële bronnen gecontroleerd op 23 november 2026: [Meta Instagram](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api), [Meta changelog](https://developers.facebook.com/docs/instagram/platform/instagram-api/changelog/), [Facebook Page Feed](https://developers.facebook.com/docs/graph-api/reference/page/feed/) en [X OAuth 2.0](https://docs.x.com/fundamentals/authentication/oauth-2-0/authorization-code).

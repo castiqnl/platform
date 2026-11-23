@@ -6,7 +6,7 @@ import {
 import {useCastiq, publicationMode} from './store';
 import {Modal} from './ui';
 import './social-connections.css';
-import {api} from './serverClient';
+import {api, ServerError} from './serverClient';
 
 type Provider = 'Instagram' | 'Facebook' | 'X';
 type AccountType = 'business' | 'creator' | 'page' | 'profile';
@@ -492,9 +492,19 @@ function ServerSocialConnections({onNavigate}: {onNavigate?: (page: string) => v
   async function choose() {
     if (!activeFlow || activeFlow.status !== 'select' || !choice) return;
     const epoch = generation.current;
-    const saved = await api<ServerChannelList>(`/api/channels/${activeFlow.provider}/select`, {
-      method: 'POST', body: JSON.stringify({flowId: activeFlow.flowId, accountId: choice.id}),
-    });
+    let saved: ServerChannelList;
+    try {
+      saved = await api<ServerChannelList>(`/api/channels/${activeFlow.provider}/select`, {
+        method: 'POST', body: JSON.stringify({flowId: activeFlow.flowId, accountId: choice.id}),
+      });
+    } catch (failure) {
+      if (epoch === generation.current && failure instanceof ServerError && ['flow_expired', 'conflict', 'not_found'].includes(failure.code)) {
+        setFlow({...activeFlow, status: failure.code === 'flow_expired' ? 'expired' : 'failed'});
+        setSelection(''); setStep(1); rememberFlow(storageKey, null);
+        await refresh().catch(() => {});
+      }
+      throw failure;
+    }
     if (epoch !== generation.current) return;
     setData(saved); setFlow({...activeFlow, status: 'connected'}); setStep(4);
     rememberFlow(storageKey, null);
@@ -596,7 +606,7 @@ function ServerSocialConnections({onNavigate}: {onNavigate?: (page: string) => v
         </div>
       </div>
     </Modal>}
-    {disconnect && <Modal title={`${disconnect.name} ontkoppelen`} onClose={() => {if (!busy) setDisconnect(null);}}><div className="social-disconnect"><p>Dit account is daarna niet meer beschikbaar voor nieuwe berichten. Niet-verzonden opdrachten worden geannuleerd. Eerdere resultaten blijven bewaard.</p><div className="social-wizard-footer"><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => setDisconnect(null)}>Annuleren</button><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run(async () => {
+    {disconnect && <Modal title={`${disconnect.name} ontkoppelen`} onClose={() => {if (!dismissState.current.busy) setDisconnect(null);}}><div className="social-disconnect"><p>Dit account is daarna niet meer beschikbaar voor nieuwe berichten. Niet-verzonden opdrachten worden geannuleerd. Eerdere resultaten blijven bewaard.</p><div className="social-wizard-footer"><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => setDisconnect(null)}>Annuleren</button><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run(async () => {
       await api(`/api/channels/${disconnect.provider}`, {method: 'DELETE', body: JSON.stringify({expectedVersion: disconnect.version})});
       setDisconnect(null); await refresh(); await reload();
     })}>{disconnect.status === 'revocation_pending' ? 'Ontkoppeling controleren' : 'Ontkoppelen bevestigen'}</button></div></div></Modal>}
