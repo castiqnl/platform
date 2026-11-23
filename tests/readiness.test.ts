@@ -4,6 +4,7 @@ import {mkdtemp,mkdir,writeFile,readFile,readdir,rm} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {EventEmitter} from 'node:events';
 import {createReadiness} from '../server/readiness.ts';
 
 test('readiness requires matching applied migrations, upload access and a built frontend',async()=>{
@@ -20,4 +21,18 @@ test('readiness requires matching applied migrations, upload access and a built 
   assert.equal(await createReadiness(pool,uploads,join(directory,'missing'))(),false);
   assert.equal(await createReadiness({query:async()=>{throw new Error('database secret must not escape');}} as any,uploads,dist)(),false);
  }finally{await rm(directory,{recursive:true});}
+});
+
+test('trusted release healthcheck requires the HTTP status and exact configured publication mode',async()=>{
+ const source=(await readFile(new URL('../deploy/dg-vps-08/healthcheck.mjs',import.meta.url),'utf8')).replace("import http from 'node:http';",'').replaceAll('process.exit(', 'return (');
+ const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor,check=new AsyncFunction('http','process','setTimeout','console',source);
+ const sha='a'.repeat(40);
+ async function verify(status:number,reportedMode:string,expectedMode='provider'){
+  const http={get:(_options:any,receive:(response:any)=>void)=>{const request=new EventEmitter() as any;request.destroy=(error:Error)=>request.emit('error',error);queueMicrotask(()=>{const response=new EventEmitter() as any;response.statusCode=status;receive(response);response.emit('data',JSON.stringify(_options.path==='/api/health'?{code:200,status:'ok',commit:sha,authMode:'supabase',publicationMode:reportedMode}:{code:200,status:'ready',commit:sha}));response.emit('end');});return request;}};
+  return check(http,{argv:['node','healthcheck.mjs',sha,'4184',expectedMode]},(callback:()=>void)=>callback(),{error:()=>{}});
+ }
+ assert.equal(await verify(200,'provider-per-club'),0);
+ assert.equal(await verify(503,'provider-per-club'),1,'a body field cannot replace the actual HTTP status');
+ assert.equal(await verify(200,'sandbox-only'),1,'provider activation cannot accept sandbox health');
+ assert.equal(await verify(200,'sandbox-only','sandbox'),0);
 });

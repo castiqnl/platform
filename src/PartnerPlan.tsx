@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, CreditCard, Handshake, LockKeyhole, Settings2, Users } from 'lucide-react';
+import { Check, CreditCard, Handshake, LockKeyhole, RefreshCw, Settings2, Users } from 'lucide-react';
 import {
   getClubPlan,
   getPartnerBranding,
@@ -13,7 +13,7 @@ import {
 import { currentClubId, useCastiq } from './store';
 import { Modal, PageTitle } from './ui';
 import './partner-plan.css';
-import {api} from './serverClient';
+import {api, ServerError} from './serverClient';
 
 type PaidPlan = { name: string; price: number; teams: number; description?: string };
 const freePlan = { name: 'Gratis', price: 0, teams: null };
@@ -196,10 +196,97 @@ export type CentralPolicy={version:number;discountPercent:number;plans:CentralPl
 export type CentralQuote={plan:string;baseCents:number;savingsCents:number;netCents:number;teamLimit:number|null;discountPercent:number;partnerLogo:boolean;required:boolean;optedIn:boolean;policyVersion:number;choiceVersion:number;capturedAt:string};
 type CentralClubPlan={policy:CentralPolicy;snapshot:CentralQuote;activeTeams:number;financialProcessing:string};
 export function PartnerPlan(props:{plans:PaidPlan[];onManageTeams?:()=>void}){const {mode}=useCastiq();return mode==='demo'?<DemoPartnerPlan {...props}/>:<ServerPartnerPlan onManageTeams={props.onManageTeams}/>;}
-function ServerPartnerPlan({onManageTeams}:{onManageTeams?:()=>void}){
- const {actor,toast}=useCastiq(),[data,setData]=useState<CentralClubPlan|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);const generation=useRef(0);
- useEffect(()=>{let active=true;const epoch=++generation.current;setData(null);setError('');setBusy(false);if(actor?.role==='club')void api<CentralClubPlan>('/api/club/plan').then(v=>{if(active&&epoch===generation.current)setData(v);}).catch(e=>{if(active&&epoch===generation.current)setError(e.message);});return()=>{active=false;generation.current++;};},[actor?.id,actor?.clubId]);
- async function save(plan:string,optedIn:boolean){if(!data)return;const epoch=generation.current;setBusy(true);setError('');try{const v=await api<CentralClubPlan>('/api/club/plan',{method:'PUT',body:JSON.stringify({plan,optedIn,expectedVersion:data.snapshot.choiceVersion,expectedPolicyVersion:data.policy.version})});if(epoch===generation.current){setData(v);toast('Centrale bundelkeuze bewaard. Er is geen betaling gestart.');}}catch(e){if(epoch===generation.current)setError((e as Error).message);}finally{if(epoch===generation.current)setBusy(false);}}
- if(actor?.role!=='club')return <p role="alert">Alleen een bevoegde clubbeheerder kan de eigen bundel kiezen.</p>;
- return <div className="cp-wrap"><PageTitle title="Abonnement" description="Je centrale bundel en expliciete keuze voor het Castiq-partnerlogo."/>{error&&<p className="local-access-error" role="alert">{error} <button className="text-btn" onClick={()=>{const epoch=generation.current;void api<CentralClubPlan>('/api/club/plan').then(v=>{if(epoch===generation.current){setData(v);setError('');}}).catch(e=>setError(e.message));}}>Opnieuw laden</button></p>}{!data&&!error&&<p role="status">Centrale pakketten laden…</p>}{data&&<><div className="cp-summary"><section className="cp-panel"><header className="cp-card-heading"><CreditCard size={17}/><h2>Centrale bundelkeuze</h2></header><div className="cp-plan-overview"><div className="cp-current-info"><strong>Castiq {data.snapshot.plan}</strong><span>{data.activeTeams}{data.snapshot.teamLimit!==null?` / ${data.snapshot.teamLimit}`:''} actieve teams</span></div><div className="cp-price"><strong>{money(data.snapshot.netCents)}</strong><span>per maand excl. btw · prijsvoorstel</span></div></div><div className="cp-summary-foot"><span>{data.snapshot.savingsCents>0?`Je bespaart ${money(data.snapshot.savingsCents)} per maand.`:'Geen sponsorkorting toegepast.'}</span>{onManageTeams&&<button className="text-btn" onClick={onManageTeams}>Teams beheren</button>}</div></section><section className="cp-panel cp-partner-card"><header className="cp-card-heading"><Handshake size={18}/><h2>Castiq-partnerlogo</h2></header><div className="cp-partner-info"><PartnerLogo/><div><strong>{data.snapshot.required?'Verplicht bij Gratis':data.policy.discountPercent?`${data.policy.discountPercent}% sponsorkorting bij deelname`:'Vrijwillige partnervermelding'}</strong><p>Nieuwe bijdragen leggen de serverkeuze vast. Eerdere versies en exports behouden hun eigen keuze.</p></div></div>{data.snapshot.required?<p className="cp-required"><LockKeyhole size={15}/> Logo verplicht; geen opt-out bij Gratis</p>:<label className="cp-choice"><input type="checkbox" checked={data.snapshot.optedIn} disabled={busy} onChange={e=>void save(data.snapshot.plan,e.target.checked)}/><span>Ik kies namens de club voor het Castiq-partnerlogo{data.policy.discountPercent?` voor ${data.policy.discountPercent}% sponsorkorting`:''}.</span></label>}</section></div><section className="cp-panel"><header className="cp-card-heading"><h2>Kies je bundel</h2><span>Centrale tarieven · versie {data.policy.version}</span></header><ul className="cp-plan-list">{data.policy.plans.map(p=>{const selected=p.name===data.snapshot.plan,over=p.teamLimit!==null&&data.activeTeams>p.teamLimit;const savings=p.name==='Gratis'||!data.snapshot.optedIn?0:Math.floor((p.baseCents*data.policy.discountPercent+50)/100);return <li key={p.name} className={selected?'is-current':''}><div className="cp-plan-option"><strong>Castiq {p.name}</strong><small>{p.teamLimit!==null?`Tot ${p.teamLimit} actieve teams`:'Partnerlogo verplicht'}</small></div><div className="cp-option-price"><strong>{money(p.baseCents-savings)}</strong></div><div className="cp-plan-action">{selected?<span className="cp-current-label"><Check size={14}/> Gekozen</span>:<button className="btn btn-secondary" disabled={busy||over} title={over?'Meer actieve teams dan deze bundel toestaat.':undefined} onClick={()=>void save(p.name,data.snapshot.optedIn)}>Kies</button>}</div></li>;})}</ul></section><p className="cp-example-note">{data.financialProcessing} Deze keuze start geen factuur, incasso of betaald abonnement. De serverprijs is het gezaghebbende voorstel; vastgelegde historische snapshots blijven behouden.</p></>}</div>;
+function ServerPartnerPlan({onManageTeams}: {onManageTeams?: () => void}) {
+  const {actor, toast} = useCastiq();
+  const [data, setData] = useState<CentralClubPlan | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [retryChoice, setRetryChoice] = useState<{plan: string; optedIn: boolean} | null>(null);
+  const generation = useRef(0), requests = useRef(0), saving = useRef(false);
+  const allowed = actor?.role === 'club';
+  useEffect(() => {
+    let active = true;
+    const epoch = ++generation.current, request = ++requests.current;
+    setData(null); setError(''); setBusy(false); setRetryChoice(null); setLoading(allowed); saving.current = false;
+    if (allowed) void api<CentralClubPlan>('/api/club/plan').then(value => {
+      if (active && epoch === generation.current && request === requests.current) setData(value);
+    }).catch(failure => {
+      if (active && epoch === generation.current && request === requests.current) setError(failure.message);
+    }).finally(() => {
+      if (active && epoch === generation.current && request === requests.current) setLoading(false);
+    });
+    return () => {active = false; generation.current++; requests.current++;};
+  }, [actor?.id, actor?.clubId, allowed]);
+  async function refresh() {
+    const epoch = generation.current, request = ++requests.current;
+    setLoading(true);
+    try {
+      const result = await api<CentralClubPlan>('/api/club/plan');
+      if (epoch === generation.current && request === requests.current) {setData(result); setError('');}
+    } catch (failure) {
+      if (epoch === generation.current && request === requests.current) setError((failure as Error).message);
+    } finally {
+      if (epoch === generation.current && request === requests.current) setLoading(false);
+    }
+  }
+  async function save(plan: string, optedIn: boolean) {
+    if (!data || saving.current) return;
+    const epoch = generation.current;
+    saving.current = true; requests.current++; setBusy(true); setError(''); setRetryChoice(null);
+    try {
+      const result = await api<CentralClubPlan>('/api/club/plan', {method: 'PUT', body: JSON.stringify({plan, optedIn, expectedVersion: data.snapshot.choiceVersion, expectedPolicyVersion: data.policy.version})});
+      if (epoch === generation.current) {setData(result); toast('Bundelkeuze opgeslagen. Er is geen betaling gestart.');}
+    } catch (failure) {
+      if (epoch === generation.current) {
+        setError((failure as Error).message);
+        if (failure instanceof ServerError && failure.status === 409) {
+          try {
+            const latest = await api<CentralClubPlan>('/api/club/plan');
+            if (epoch === generation.current) {setData(latest); setRetryChoice({plan, optedIn});}
+          } catch {if (epoch === generation.current) setError('Je keuze is nog niet opgeslagen. Ververs de bundels en probeer opnieuw.');}
+        }
+      }
+    } finally {
+      if (epoch === generation.current) {saving.current = false; setBusy(false); setLoading(false);}
+    }
+  }
+  if (!allowed) return <p role="alert">Alleen een bevoegde clubbeheerder kan de eigen bundel kiezen.</p>;
+  const proposed = retryChoice && data?.policy.plans.find(plan => plan.name === retryChoice.plan);
+  const proposedSavings = proposed && retryChoice?.optedIn && proposed.name !== 'Gratis' ? Math.floor((proposed.baseCents * data!.policy.discountPercent + 50) / 100) : 0;
+  return <div className="cp-wrap">
+    <PageTitle title="Abonnement" description="Bekijk je bundel, het teamgebruik en je keuze voor het Castiq-partnerlogo."/>
+    {error && <p className="local-access-error" role="alert">{error} <button className="text-btn" type="button" disabled={busy || loading} onClick={() => void refresh()}>Opnieuw laden</button></p>}
+    {!data && loading && <p role="status">Bundels laden…</p>}
+    {retryChoice && proposed && <section className="cp-conflict" aria-labelledby="cp-choice-conflict"><h2 id="cp-choice-conflict">Controleer je keuze opnieuw</h2><p>De bundel of tarieven zijn intussen gewijzigd. Je wilde Castiq {retryChoice.plan} kiezen voor {money(proposed.baseCents - proposedSavings)} per maand excl. btw{retryChoice.plan === 'Gratis' ? ', met verplicht Castiq-partnerlogo' : retryChoice.optedIn ? ', met Castiq-partnerlogo' : ', zonder Castiq-partnerlogo'}.</p><p>Bekijk hieronder de actuele bundel en tarieven. Er is nog niets gewijzigd.</p><div className="cp-conflict-actions"><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => {setRetryChoice(null); setError('');}}>Keuze laten vervallen</button><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save(retryChoice.plan, retryChoice.optedIn)}>Keuze opnieuw bevestigen</button></div></section>}
+    {data && <>
+      <div className="cp-summary">
+        <section className="cp-panel" aria-labelledby="cp-current-plan">
+          <header className="cp-card-heading"><CreditCard size={17} aria-hidden="true"/><h2 id="cp-current-plan">Centrale bundelkeuze</h2></header>
+          <div className="cp-plan-overview"><div className="cp-current-info"><strong>Castiq {data.snapshot.plan}</strong><span className="cp-current-usage"><Users size={15} aria-hidden="true"/>{data.activeTeams}{data.snapshot.teamLimit !== null ? ` / ${data.snapshot.teamLimit}` : ''} actieve teams</span></div><div className="cp-price" aria-live="polite"><strong>{money(data.snapshot.netCents)}</strong><span>per maand excl. btw</span></div></div>
+          <div className="cp-summary-foot"><span>{data.snapshot.savingsCents > 0 ? `Je bespaart ${money(data.snapshot.savingsCents)} per maand.` : 'Geen sponsorkorting toegepast.'}</span>{onManageTeams && <button type="button" className="text-btn" onClick={onManageTeams}>Teams beheren</button>}</div>
+          <p className="cp-payment-status">Online betalen is nog niet beschikbaar. Je bundelkeuze start geen factuur of incasso.</p>
+        </section>
+        <section className="cp-panel cp-partner-card" aria-labelledby="cp-club-partner">
+          <header className="cp-card-heading"><Handshake size={18} aria-hidden="true"/><h2 id="cp-club-partner">Castiq-partnerlogo</h2></header>
+          <div className="cp-partner-info"><PartnerLogo/><div><strong>{data.snapshot.required ? 'Verplicht bij Gratis' : data.policy.discountPercent ? `${data.policy.discountPercent}% sponsorkorting bij deelname` : 'Vrijwillige partnervermelding'}</strong><p>Het Castiq-logo krijgt een vaste plek op nieuwe clubvisuals. Eerder gemaakte versies behouden hun eigen partnerkeuze.</p></div></div>
+          {data.snapshot.required ? <p className="cp-required"><LockKeyhole size={15} aria-hidden="true"/> Logo verplicht; geen opt-out bij Gratis</p> : <label className="cp-choice"><input type="checkbox" checked={data.snapshot.optedIn} disabled={busy || loading} onChange={event => void save(data.snapshot.plan, event.target.checked)}/><span>Ik kies namens de club voor het Castiq-partnerlogo{data.policy.discountPercent ? ` voor ${data.policy.discountPercent}% sponsorkorting` : ''}.</span></label>}
+        </section>
+      </div>
+      <section className="cp-panel" aria-labelledby="cp-plan-options" aria-busy={busy || loading}>
+        <header className="cp-card-heading cp-list-heading"><h2 id="cp-plan-options">Kies je bundel</h2><button className="text-btn" type="button" disabled={busy || loading} onClick={() => void refresh()}><RefreshCw size={14} aria-hidden="true"/>{loading ? 'Verversen…' : 'Verversen'}</button></header>
+        <ul className="cp-plan-list">{data.policy.plans.map(plan => {
+          const selected = plan.name === data.snapshot.plan, overLimit = plan.teamLimit !== null && data.activeTeams > plan.teamLimit;
+          const savings = plan.name === 'Gratis' || !data.snapshot.optedIn ? 0 : Math.floor((plan.baseCents * data.policy.discountPercent + 50) / 100);
+          return <li key={plan.name} className={selected ? 'is-current' : ''}>
+            <div className="cp-plan-option"><strong>Castiq {plan.name}</strong><small>{plan.teamLimit !== null ? `Tot ${plan.teamLimit} actieve teams` : 'Castiq-partnerlogo verplicht'}</small>{plan.description && <small className="cp-plan-description">{plan.description}</small>}{overLimit && <small className="cp-plan-limit">Je hebt {data.activeTeams} actieve teams; deze bundel biedt {plan.teamLimit} plekken.</small>}</div>
+            <div className="cp-option-price">{savings > 0 && <s>{money(plan.baseCents)}</s>}<strong>{money(plan.baseCents - savings)}</strong></div>
+            <div className="cp-plan-action">{selected ? <span className="cp-current-label"><Check size={14} aria-hidden="true"/> Gekozen</span> : <button className="btn btn-secondary" type="button" disabled={busy || loading || overLimit} title={overLimit ? 'Beheer eerst je actieve teams om deze bundel te kunnen kiezen.' : undefined} onClick={() => void save(plan.name, data.snapshot.optedIn)}>Kies</button>}</div>
+          </li>;
+        })}</ul>
+      </section>
+      {busy && <p className="cp-example-note" role="status">Bundelkeuze opslaan…</p>}
+      <p className="cp-example-note">Tarieven versie {data.policy.version} · per maand, exclusief btw. Een nieuwe bundel of partnerkeuze geldt voor nieuwe bijdragen. Bestaande versies en downloads veranderen niet.</p>
+    </>}
+  </div>;
 }

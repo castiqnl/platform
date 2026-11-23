@@ -41,7 +41,8 @@ export function validateRuntimeConfiguration(environment){
  for(const name of required)if(!value(environment,name))errors.push(`${name}: ontbreekt`);
  if(!['local','staging','production'].includes(environment.APP_ENV))errors.push('APP_ENV: ongeldig');
  if(!['local','supabase'].includes(environment.AUTH_MODE))errors.push('AUTH_MODE: ongeldig');
- if(environment.PUBLICATION_MODE!=='sandbox')errors.push('PUBLICATION_MODE: deze implementatie ondersteunt uitsluitend sandbox');
+ if(!['sandbox','provider'].includes(environment.PUBLICATION_MODE))errors.push('PUBLICATION_MODE: gebruik sandbox of provider');
+ if(environment.PUBLICATION_MODE==='provider'){for(const name of ['CHANNEL_TOKEN_ENCRYPTION_KEY','PUBLICATION_MEDIA_SIGNING_KEY'])if(!/^[a-f0-9]{64}$/i.test(value(environment,name)))errors.push(name+': afzonderlijke 32-byte hexsleutel vereist voor providerpublicatie');if(value(environment,'CHANNEL_TOKEN_ENCRYPTION_KEY')===value(environment,'PUBLICATION_MEDIA_SIGNING_KEY'))errors.push('PUBLICATION_MEDIA_SIGNING_KEY: gebruik een afzonderlijke sleutel');}
  if(!/^\d+$/.test(environment.PORT||'')||Number(environment.PORT)<1024||Number(environment.PORT)>65535)errors.push('PORT: ongeldig');
  if(environment.AUTH_MODE==='local'&&(environment.APP_ENV!=='local'||!['127.0.0.1','localhost','::1'].includes(environment.HOST)))errors.push('AUTH_MODE: lokale testaccounts vereisen lokale loopbackbinding');
  if(environment.APP_ENV!=='local'&&(environment.AUTH_MODE!=='supabase'||!['127.0.0.1','::1'].includes(environment.HOST)))errors.push('AUTH_MODE/HOST: staging en productie vereisen Supabase en loopbackbinding');

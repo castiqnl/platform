@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/verify-legal.mjs && vite build",
+    "build": "node scripts/verify-legal.mjs && node scripts/build-publication-renderer.mjs && vite build",
     "check": "tsc --noEmit && tsc -p tsconfig.server.json",
     "dev": "node scripts/dev.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
@@ -16,7 +16,7 @@
     "server": "node --env-file-if-exists=.env.local server/index.ts",
     "db:migrate": "node --env-file-if-exists=.env.local database/migrate.ts",
     "db:seed": "node --env-file-if-exists=.env.local database/seed.ts",
-    "test:server": "node --env-file-if-exists=.env.local --test tests/server*.test.ts tests/pilotWeekend.test.ts",
+    "test:server": "node scripts/build-publication-renderer.mjs && node --env-file-if-exists=.env.local --test tests/server*.test.ts tests/pilotWeekend.test.ts",
     "test:browser": "playwright test",
     "verify:assets": "node scripts/verify-assets.mjs",
     "local:backup": "node --env-file=.env.local scripts/local-backup.mjs",

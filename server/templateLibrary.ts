@@ -8,6 +8,7 @@ import {FORMATS, BINDINGS, withCastiqPartnerLayer, CASTIQ_PARTNER_LAYER_ID, LAYE
 type Database = Pick<pg.PoolClient, 'query'>;
 export type TemplateLayouts = Record<string, any[]>;
 const seeds: any[] = JSON.parse(readFileSync(new URL('../src/template-studio/builtin-templates.json', import.meta.url), 'utf8'));
+const knownAssets=new Set(JSON.parse(readFileSync(new URL('../docs/ASSET-MANIFEST.json',import.meta.url),'utf8')).assets.map((item:any)=>item.path.replace(/^public/,'')));
 const formats = Object.keys(FORMATS), postTypes = ['match', 'result', 'news', 'lineup'];
 const families = new Set(seeds.map(item => item.family));
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -19,10 +20,8 @@ const number = (value: unknown, min: number, max: number, fallback: number) => {
 const boolean = (value: unknown, fallback: boolean) => {if (value === undefined) return fallback; if (typeof value !== 'boolean') invalid('Kies een geldige aan/uit-waarde.'); return value as boolean;};
 const colour = (value: unknown, fallback = '#ffffff') => {const result = value === undefined ? fallback : value; if (typeof result !== 'string' || !/^#(?:[a-f0-9]{3,4}|[a-f0-9]{6}|[a-f0-9]{8})$/i.test(result)) invalid('Gebruik een geldige hexkleur.'); return result as string;};
 function picture(value: string) {
-  if (!value || /^\/assets\/[a-zA-Z0-9_.-]+$/.test(value)) return value;
-  let url: URL; try {url = new URL(value);} catch {invalid('Gebruik een openbare HTTPS-afbeelding of een meegeleverde asset.');}
-  if (url!.protocol !== 'https:' || url!.username || url!.password || url!.hash || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(url!.hostname) || /(?:^|\.)(?:localhost|local|internal)$/i.test(url!.hostname) || value.length > 2000) invalid('Gebruik een openbare HTTPS-afbeelding zonder inloggegevens.');
-  return value;
+  if (!value || /^\/assets\/[a-zA-Z0-9_.-]+$/.test(value)&&knownAssets.has(value) || /^\/api\/template-media\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value)) return value;
+  invalid('Upload vaste afbeeldingen via Afbeelding uploaden in Template Studio. Externe afbeeldings-URL’s zijn niet toegestaan.');
 }
 
 /** Strict server boundary; partner geometry is reconstructed, never trusted. */
@@ -70,6 +69,12 @@ export function normalizeTemplateLayouts(input: unknown): TemplateLayouts {
   return layouts;
 }
 
+export async function templateMediaReferences(db:Database,layouts:TemplateLayouts) {
+ const urls=[...new Set(Object.values(layouts).flat().filter(layer=>layer.type==='image'&&!layer.binding&&typeof layer.text==='string'&&layer.text.startsWith('/api/template-media/')).map(layer=>layer.text as string))];
+ const references=[];
+ for(const url of urls){const id=url.slice('/api/template-media/'.length),row=(await db.query("SELECT content_sha256,width,height,byte_size FROM castiq.media WHERE id=$1 AND club_id='__platform__'",[id])).rows[0];if(!row||! /^[a-f0-9]{64}$/.test(row.content_sha256))invalid('Een centrale ontwerpafbeelding ontbreekt. Upload de afbeelding opnieuw.');references.push({url,sha256:row.content_sha256,width:row.width,height:row.height,bytes:Number(row.byte_size)});}
+ return references;
+}
 const initializations = new WeakMap<object,Promise<void>>();
 export function initializeTemplateLibrary(pool: pg.Pool): Promise<void> {
   let work = initializations.get(pool);
@@ -104,7 +109,7 @@ export function createTemplateLibrary(pool: pg.Pool) {
     platform(actor); await initializeTemplateLibrary(pool);
     if (!postTypes.includes(input.postType)||!families.has(input.family)) invalid('Kies een bekend posttype en een bestaande basisstijl.');
     const name=label(input.name),description=text(input.description||'',280),layouts=normalizeTemplateLayouts(input.layouts||seeds.find(seed=>seed.family===input.family).variants[input.postType]),id='template-'+randomUUID();
-    const db=await pool.connect(); try {await db.query('BEGIN');await db.query("SELECT pg_advisory_xact_lock(hashtext('castiq-template-library'))");await db.query('INSERT INTO castiq.templates(id,name,description,family,post_type,draft_layouts,draft_saved_at) VALUES($1,$2,$3,$4,$5,$6,now())',[id,name,description,input.family,input.postType,JSON.stringify(layouts)]);await audit(db,id,actor.id,'created',1,{sha256:digest(layouts)});await db.query('COMMIT');}catch(error){await db.query('ROLLBACK');throw error;}finally{db.release();}
+    const db=await pool.connect(); try {await db.query('BEGIN');await db.query("SELECT pg_advisory_xact_lock(hashtext('castiq-template-library'))");await templateMediaReferences(db,layouts);await db.query('INSERT INTO castiq.templates(id,name,description,family,post_type,draft_layouts,draft_saved_at) VALUES($1,$2,$3,$4,$5,$6,now())',[id,name,description,input.family,input.postType,JSON.stringify(layouts)]);await audit(db,id,actor.id,'created',1,{sha256:digest(layouts)});await db.query('COMMIT');}catch(error){await db.query('ROLLBACK');throw error;}finally{db.release();}
     return {template:(await readTemplates(pool)).find(item=>item.id===id)};
   }
   async function mutate(actor: Actor,id: string,input: any) {
@@ -132,7 +137,7 @@ export function createTemplateLibrary(pool: pg.Pool) {
         if(typeof input.enabled!=='boolean'||input.enabled&&!row.published_version)invalid('Publiceer eerst een versie voordat je het template activeert.');
         changes={enabled:input.enabled,is_default:input.enabled?row.is_default:false};
       }else if(input.operation==='save-draft'||input.operation==='publish'){
-        const layouts=normalizeTemplateLayouts(input.layouts);
+        const layouts=normalizeTemplateLayouts(input.layouts);await templateMediaReferences(db,layouts);
         if(input.operation==='save-draft')changes={draft_layouts:JSON.stringify(layouts),draft_saved_at:new Date().toISOString(),draft_based_on:row.draft_based_on??row.published_version};
         else {const last=(await db.query('SELECT COALESCE(max(number),0)::integer AS n FROM castiq.template_versions WHERE template_id=$1',[id])).rows[0].n;const number=last+1;await db.query('INSERT INTO castiq.template_versions(template_id,number,layouts,content_sha256,actor_id) VALUES($1,$2,$3,$4,$5)',[id,number,JSON.stringify(layouts),digest(layouts),actor.id]);changes={published_version:number,draft_layouts:null,draft_saved_at:null,draft_based_on:null};metadata={number,sha256:digest(layouts)};}
       }else if(input.operation==='discard-draft')changes={draft_layouts:null,draft_saved_at:null,draft_based_on:null};
@@ -162,8 +167,8 @@ export async function stampContentTemplate(db: Database,actor: Actor,item: any,e
   if(!template)throw new ApiError(403,'Dit template is niet actief of niet aan deze vereniging toegewezen.','template_unavailable');
   const version=template.versions.find(value=>value.number===template.publishedVersion);
   const source=template.id.startsWith('familie-')&&template.postType!==postType?seeds.find(seed=>seed.id===template.id)?.variants[postType]:version.layouts;
-  const layouts=normalizeTemplateLayouts(source);
-  return {templateId:template.id,templateSnapshot:{id:template.id,name:template.name,family:template.family,postType,version:version.number,sha256:digest(layouts),layouts}};
+  const layouts=normalizeTemplateLayouts(source),media=await templateMediaReferences(db,layouts);
+  return {templateId:template.id,templateSnapshot:{id:template.id,name:template.name,family:template.family,postType,version:version.number,sha256:digest(layouts),layouts,media}};
 }
 
 export async function assertTemplateFamilyAvailable(db: Database,actor: Actor,family: string) {

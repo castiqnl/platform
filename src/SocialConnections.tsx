@@ -1,7 +1,7 @@
 import React, {useEffect, useId, useMemo, useRef, useState} from 'react';
 import {
   Check, CircleAlert, ExternalLink, Facebook, FlaskConical, Globe2,
-  Instagram, Link2, ListChecks, LockKeyhole, Pause, Play, Plug, RefreshCw, Unplug,
+  Instagram, Link2, ListChecks, LockKeyhole, ShieldCheck, Pause, Play, Plug, RefreshCw, Unplug,
 } from 'lucide-react';
 import {useCastiq, publicationMode} from './store';
 import {Modal} from './ui';
@@ -407,6 +407,7 @@ function ServerSocialConnections({onNavigate}: {onNavigate?: (page: string) => v
   dismissState.current = {busy, activeFlow};
   const linkedCount = data?.providers.filter(channel => channel.status === 'connected').length || 0;
 
+  useEffect(()=>{const changed=()=>{void refresh().catch(failure=>setError(failure.message));};window.addEventListener('castiq:integrations-changed',changed);return()=>window.removeEventListener('castiq:integrations-changed',changed);},[actor?.id,actor?.clubId]);
   async function refresh() {
     const epoch = generation.current;
     const result = await api<ServerChannelList>('/api/channels');
@@ -536,7 +537,7 @@ function ServerSocialConnections({onNavigate}: {onNavigate?: (page: string) => v
           {(channel.destinations.length ? channel.destinations : destinations[channel.name]).map(destination => <span key={destination}>{destination}</span>)}
         </div>
         <div className="social-channel-state"><span data-state={channel.status} data-linked={channel.status === 'connected'}>{channelStatus[channel.status] || 'Controle nodig'}</span>
-          <small>{!channel.configured ? 'Aansluiting nog niet beschikbaar' : channel.checkedAt ? `Gecontroleerd ${timeFormat.format(new Date(channel.checkedAt))}` : 'Klaar om te koppelen'}</small>
+          <small>{!channel.configured ? 'Provider nog niet vrijgegeven' : channel.checkedAt ? `Gecontroleerd ${timeFormat.format(new Date(channel.checkedAt))}` : 'Klaar om te koppelen'}</small>
         </div>
         <div className="social-channel-actions">
           {channel.status !== 'revocation_pending' && <button type="button" className="btn btn-primary" aria-label={`${channel.name} ${channel.status === 'connected' ? 'opnieuw koppelen' : 'koppelen'}`} disabled={busy} onClick={() => openWizard(channel)}><Link2 size={15}/>{channel.status === 'connected' ? 'Opnieuw koppelen' : 'Koppelen'}</button>}
@@ -561,7 +562,7 @@ function ServerSocialConnections({onNavigate}: {onNavigate?: (page: string) => v
         <button type="button" className="btn btn-secondary" onClick={() => onNavigate?.('sources')}>Beheren <ExternalLink size={14}/></button>
       </section>
     </div>
-    <p className="social-environment-note"><FlaskConical size={15} aria-hidden="true"/> Publiceren wordt hier alleen getest. Er verschijnen geen berichten op je sociale kanalen.</p>
+    <p className="social-environment-note"><ShieldCheck size={15} aria-hidden="true"/> {(state as any).publicationMode==='provider'?'Na activering en koppeling kan de clubredactie goedgekeurde berichten publiceren. Koppelen en de verbinding controleren plaatsen geen bericht.':'Publiceren wordt hier alleen getest. Er verschijnen geen berichten op je sociale kanalen.'}</p>
 
     {wizard && currentChannel && guide && <Modal title={`${wizard.name} koppelen`} onClose={closeWizard}>
       <div className="social-wizard">
@@ -575,7 +576,7 @@ function ServerSocialConnections({onNavigate}: {onNavigate?: (page: string) => v
             {step === 1 && <>
               {!waiting && !failed && activeFlow?.status !== 'select' && <><p>{guide.consent}</p><ul className="social-permissions" aria-label="Gevraagde toegang">{guide.permissions.map(text => <li key={text}><Check size={15} aria-hidden="true"/>{text}</li>)}</ul>
                 <p className="social-safe-note"><LockKeyhole size={16} aria-hidden="true"/> Je wachtwoord vul je alleen bij {wizard.name} in. Castiq vraagt hier niet om je wachtwoord.</p></>}
-              {!currentChannel.configured && <div className="social-setup-notice" role="status"><CircleAlert size={20} aria-hidden="true"/><div><strong>Koppelen is nog niet beschikbaar</strong><p>De aansluiting met {wizard.name} is nog niet geactiveerd door Castiq. Je club hoeft nu niets in te stellen. Zodra de aansluiting beschikbaar is, ga je hier verder.</p></div></div>}
+              {!currentChannel.configured && <div className="social-setup-notice" role="status"><CircleAlert size={20} aria-hidden="true"/><div><strong>Koppelen is nog niet beschikbaar</strong><p>De Castiq-app voor dit kanaal moet eerst door platformbeheer worden vrijgegeven. Daarna koppel je hier zelf het account van jullie vereniging; je hoeft geen eigen ontwikkelaarsapp te registreren.</p></div></div>}
               {waiting && <div className="social-waiting" role="status"><ExternalLink size={23}/><strong>Rond de toestemming af bij {wizard.name}</strong><p>Ga naar het geopende venster. Kom daarna hier terug; de wizard gaat automatisch verder.</p><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(checkFlow)}><RefreshCw size={15}/> Status controleren</button></div>}
               {failed && <div className="social-setup-notice" role="alert"><CircleAlert size={20}/><div><strong>{activeFlow.status === 'denied' ? 'Geen toestemming gegeven' : activeFlow.status === 'expired' ? 'Koppelsessie verlopen' : 'Koppelen niet gelukt'}</strong><p>{flowMessage(activeFlow)}</p></div></div>}
               {activeFlow?.status === 'select' && <p className="social-safe-note"><Check size={16}/> Toestemming ontvangen. Ga verder om het juiste clubaccount te kiezen.</p>}

@@ -262,7 +262,7 @@ function artboard(model, layers, format, context, options = {}) {
   return art;
 }
 
-export function mountTemplateStudio(root, { model, templateId, onBack, onChange, backgroundUrl, renderArtwork } = {}) {
+export function mountTemplateStudio(root, { model, templateId, onBack, onChange, backgroundUrl, renderArtwork, uploadImage } = {}) {
   const initial = model.getTemplate(templateId);
   if (!initial) throw new Error('De template is niet beschikbaar.');
 
@@ -525,7 +525,7 @@ export function mountTemplateStudio(root, { model, templateId, onBack, onChange,
     const compatible = Object.entries(BINDINGS).filter(([key]) => layer.type === 'image' ? IMAGE_BINDINGS.has(key) : !IMAGE_BINDINGS.has(key));
     const source = single && layer.type !== 'shape' ? `
       ${selectField('Gegevensbron', 'binding', [['', layer.type === 'text' ? 'Vaste tekst' : 'Vaste afbeelding'], ...compatible.map(([key, binding]) => [key, labelFor(binding, key)])], layer.binding ?? '')}
-      ${layer.binding ? '' : `<label class="cq-field"><span>${layer.type === 'text' ? 'Tekst' : 'Afbeeldings-URL'}</span><input type="text" data-field="text" value="${html(layer.text)}"></label>`}
+      ${layer.binding ? '' : layer.type==='image'&&uploadImage ? `<label class="cq-field"><span>Afbeelding uploaden</span><input type="file" data-template-upload accept="image/jpeg,image/png,image/webp"></label><small class="cq-muted">JPG, PNG of WebP · maximaal 8 MB. De afbeelding wordt afgeschermd opgeslagen.</small><label class="cq-field"><span>Afbeeldingsreferentie</span><input type="text" readonly value="${html(layer.text)}"></label>` : `<label class="cq-field"><span>${layer.type === 'text' ? 'Tekst' : 'Afbeeldings-URL'}</span><input type="text" data-field="text" value="${html(layer.text)}"></label>`}
     ` : '';
 
     if (inspectorTab === 'layer') {
@@ -903,6 +903,13 @@ export function mountTemplateStudio(root, { model, templateId, onBack, onChange,
     if (model.isSaving?.()) return;
     const control = event.target;
     if (!(control instanceof HTMLElement)) return;
+    if(control.hasAttribute('data-template-upload')){
+      const file=control.files?.[0],target=selectedLayers()[0],uploadFormat=format;
+      if(!file||!target||target.type!=='image'||target.id==='castiq-partner-logo'||!uploadImage)return;
+      control.disabled=true;notify('Afbeelding veilig uploaden…');
+      void uploadImage(file).then(result=>{if(signal.aborted)return;model.updateLayer(templateId,uploadFormat,target.id,{text:result.url,binding:null});refresh();notify('Afbeelding toegevoegd. Bewaar of publiceer je ontwerp om deze laag vast te leggen.');}).catch(error=>{if(!signal.aborted){control.disabled=false;notify(error.message||'De afbeelding is niet opgeslagen.');}});
+      return;
+    }
     if (control.dataset.preview) {
       if (control.dataset.preview === 'scenario') scenarioId = control.value;
       if (control.dataset.preview === 'club') clubId = control.value;

@@ -31,17 +31,18 @@ export function contentPrivacyErrors(item:any):string[]{
  return errors;
 }
 function assertPrivacy(item:any){const errors=contentPrivacyErrors(item);if(errors.length)throw new Error(errors.join(' '));}
-function aggregateStatus(item:any){const jobs=(item.jobs||[]).filter((job:any)=>job.version===item.version&&job.status!=='cancelled');if(!jobs.length)return item.approvedVersion===item.version?'approved':item.status==='review'?'review':'draft';if(jobs.some((job:any)=>['queued','scheduled','awaiting_confirmation','processing'].includes(job.status)))return jobs.every((job:any)=>job.status==='scheduled')?'scheduled':'queued';if(jobs.some((job:any)=>job.status==='failed'))return 'failed';if(jobs.every((job:any)=>job.status==='published'&&job.receipt?.kind==='demo'))return 'published';return 'approved';}
+function invalidatePublicationJob(job:any,message:string){if(terminalJobs.has(job.status))return job;if(job.providerMode==='provider'&&job.adapter==='official-provider'&&(['processing','awaiting_confirmation'].includes(job.status)||job.dispatchStartedAt))return {...job,status:'awaiting_confirmation',error:'Eerdere verzending is mogelijk uitgevoerd. Controleer dezelfde opdracht; de gewijzigde versie wordt niet opnieuw verstuurd.'};return {...job,status:'cancelled',cancelledAt:now(),error:message};}
+function aggregateStatus(item:any){const jobs=(item.jobs||[]).filter((job:any)=>job.version===item.version&&job.status!=='cancelled');if(!jobs.length)return item.approvedVersion===item.version?'approved':item.status==='review'?'review':'draft';if(jobs.some((job:any)=>['queued','scheduled','awaiting_confirmation','processing'].includes(job.status)))return jobs.every((job:any)=>job.status==='scheduled')?'scheduled':'queued';if(jobs.some((job:any)=>job.status==='failed'))return 'failed';if(jobs.every((job:any)=>job.status==='published'&&(job.receipt?.kind==='demo'&&job.providerMode!=='provider'||job.receipt?.kind==='provider'&&job.providerMode==='provider'&&job.adapter==='official-provider')))return 'published';return 'approved';}
 export function normalizeContent(value:any):any {
- const item={...value,id:value?.id||id('content'),version:Math.max(1,Number(value?.version)||1),jobs:[] as any[],history:Array.isArray(value?.history)?value.history:[],photoUsage:value?.photoUsage==='no_photo'?'no_photo':'photo',photoConsent:['approved','unknown','denied'].includes(value?.photoConsent)?value.photoConsent:(String(value?.image||'').startsWith('/assets/')?'approved':'unknown'),namePolicy:value?.namePolicy||'initials',providerMode:'demo'};
+ const item={...value,id:value?.id||id('content'),version:Math.max(1,Number(value?.version)||1),jobs:[] as any[],history:Array.isArray(value?.history)?value.history:[],photoUsage:value?.photoUsage==='no_photo'?'no_photo':'photo',photoConsent:['approved','unknown','denied'].includes(value?.photoConsent)?value.photoConsent:(String(value?.image||'').startsWith('/assets/')?'approved':'unknown'),namePolicy:value?.namePolicy||'initials',providerMode:value?.providerMode==='provider'?'provider':'demo'};
  item.jobs=(Array.isArray(value?.jobs)?value.jobs:[]).map((j:any,index:number)=>{
   const version=Math.max(1,Number(j.version)||item.version),dedupeKey=j.dedupeKey||`${item.id}:v${version}:${j.channel}`,at=j.createdAt||value?.date||now();
-  const job={...j,id:j.id||`legacy-${item.id}-${index}`,version,attempt:Math.max(1,Number(j.attempt)||1),requestId:j.requestId||dedupeKey,dedupeKey,providerMode:'demo',createdAt:at,mode:j.mode||'success',scheduledAt:j.scheduledAt||(j.status==='scheduled'?value?.date:undefined)};
-  if(job.status==='published')job.receipt={...(j.receipt||{}),kind:'demo',provider:'castiq-demo',providerPostId:j.receipt?.providerPostId||`demo-legacy-${item.id}-${index}`,confirmedAt:j.receipt?.confirmedAt||at,notice:'Gesimuleerde kanaalbevestiging; niet extern gepubliceerd.'};
+  const job={...j,id:j.id||`legacy-${item.id}-${index}`,version,attempt:Math.max(1,Number(j.attempt)||1),requestId:j.requestId||dedupeKey,dedupeKey,providerMode:j.providerMode==='provider'&&j.adapter==='official-provider'?'provider':'demo',createdAt:at,mode:j.mode||'success',scheduledAt:j.scheduledAt||(j.status==='scheduled'?value?.date:undefined)};
+  if(job.status==='published'&&job.providerMode!=='provider')job.receipt={...(j.receipt||{}),kind:'demo',provider:'castiq-demo',providerPostId:j.receipt?.providerPostId||`demo-legacy-${item.id}-${index}`,confirmedAt:j.receipt?.confirmedAt||at,notice:'Gesimuleerde kanaalbevestiging; niet extern gepubliceerd.'};
   if(job.status==='failed'&&!job.error)job.error='Voorbeeldpublicatie mislukt. Controleer het kanaal en probeer opnieuw.';
   return job;
  });
- if(item.approvedVersion!==undefined&&item.approvedVersion!==item.version){item.approvedVersion=undefined;item.status='review';item.jobs=item.jobs.map((j:any)=>terminalJobs.has(j.status)?j:{...j,status:'cancelled',error:'Goedkeuring hoort bij een vorige versie.'});}
+ if(item.approvedVersion!==undefined&&item.approvedVersion!==item.version){item.approvedVersion=undefined;item.status='review';item.jobs=item.jobs.map((j:any)=>invalidatePublicationJob(j,'Goedkeuring hoort bij een vorige versie.'));}
  if(item.approvedVersion===item.version&&['published','scheduled','queued','failed','approved'].includes(item.status))item.status=aggregateStatus(item);
  return item;
 }
@@ -49,7 +50,7 @@ export function reviseContent(value:any,patch:any,actor='Clubredactie'):any {
  const item=normalizeContent(value),safe={...patch};for(const key of ['id','version','approvedVersion','approvedBy','approvedAt','jobs','history','providerMode'])delete safe[key];
  const changed=Object.keys(safe).some(key=>JSON.stringify(item[key])!==JSON.stringify(safe[key]));if(!changed)return item;
  const reviewed=item.approvedVersion===item.version||item.status==='review'||item.jobs.length>0;
- const next={...item,...safe,version:item.version+1,approvedVersion:undefined,approvedBy:undefined,approvedAt:undefined,status:reviewed?'review':'draft',updatedAt:now(),jobs:item.jobs.map((job:any)=>terminalJobs.has(job.status)?job:{...job,status:'cancelled',cancelledAt:now(),error:'Inhoud gewijzigd; deze versie moet opnieuw worden beoordeeld.'})};
+ const next={...item,...safe,version:item.version+1,approvedVersion:undefined,approvedBy:undefined,approvedAt:undefined,status:reviewed?'review':'draft',updatedAt:now(),jobs:item.jobs.map((job:any)=>invalidatePublicationJob(job,'Inhoud gewijzigd; deze versie moet opnieuw worden beoordeeld.'))};
  next.history=addHistory(next,'revision',actor,`Versie ${item.version} → ${next.version}. Vorige goedkeuring vervallen.`);return next;
 }
 export function submitContent(value:any,actor='Teammanager'):any{const item=normalizeContent(value);if(!String(item.title||'').trim()&&!String(item.caption||'').trim())throw new Error('Vul eerst een titel of toelichting in.');if(item.approvedVersion===item.version)return item;const next={...item,status:'review',submittedAt:now(),updatedAt:now()};next.history=addHistory(next,'submitted',actor,'Ingediend bij de clubredactie.');return next;}
@@ -77,6 +78,7 @@ export function queuePublication(value:any,channel:string,options:{scheduledAt?:
 }
 export function processPublication(value:any,jobId:string,outcome:DemoOutcome,options:{now?:string;providerPostId?:string;url?:string}={}):any{
  const item=normalizeContent(value),job=item.jobs.find((j:any)=>j.id===jobId);if(!job)throw new Error('Publicatiejob niet gevonden.');if(job.status==='published'||job.status==='cancelled')return item;
+ if(job.providerMode==='provider')throw new Error('Echte provideropdrachten kunnen niet via de sandbox worden bevestigd.');
  if(job.version!==item.version||item.approvedVersion!==item.version){const next={...item,jobs:item.jobs.map((j:any)=>j.id===jobId?{...j,status:'cancelled',error:'Verouderde versie: opnieuw beoordelen voordat je publiceert.'}:j)};next.status=aggregateStatus(next);return next;}
  assertPrivacy(item);const at=options.now||now();if(job.scheduledAt&&Date.parse(job.scheduledAt)>Date.parse(at))throw new Error('Dit publicatiemoment ligt nog in de toekomst.');
  let nextJob:any={...job,updatedAt:at};

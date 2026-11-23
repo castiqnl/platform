@@ -17,3 +17,11 @@ Officiële toestemming, accountkeuze en bevestiging blijven servergestuurd. Alle
 De Instagram-route gebruikt Instagram Login voor professionele accounts; geen fictieve Facebook-loginoptie. Gebruikte officiële bronnen gecontroleerd op 23 november 2026: [Meta Instagram](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api), [Meta changelog](https://developers.facebook.com/docs/instagram/platform/instagram-api/changelog/), [Facebook Page Feed](https://developers.facebook.com/docs/graph-api/reference/page/feed/) en [X OAuth 2.0](https://docs.x.com/fundamentals/authentication/oauth-2-0/authorization-code).
 
 De stagingactivatie volgt de exacte-SHA-procedure. Live providerautorisatie vraagt nog de eerder vastgelegde private providerconfiguratie; echte publicatie en betalingen blijven uitgeschakeld.
+
+## Uitgerold naar staging
+
+Actief: `3cf040cf91e0e15c2fa2f7f52d82a48165f004d9`, releasepaar `3cf040cf91e0e15c2fa2f7f52d82a48165f004d9-45271236093-1-initial-20261122`. Exacte main-push-CI [45270483470](https://github.com/castiqnl/platform/actions/runs/45270483470), kandidaatbuild [45271236093](https://github.com/castiqnl/platform/actions/runs/45271236093) en activatie [45271547140](https://github.com/castiqnl/platform/actions/runs/45271547140) zijn geslaagd.
+
+De nieuwe wizard-JS en CSS zijn via publiek HTTPS opgehaald en bytegelijk aan het geïnstalleerde artifact. Health/readiness geven 200 op de nieuwe SHA; API en worker draaien zonder herstarts of waargenomen achtergrondfouten. Anonieme desktop-/mobiele controles zijn geslaagd. Productie, Fabelpad en proxyconfiguratie zijn voor/na gelijk. De vorige release `4c39c3a…` is bewaard; 148 overige runtimebronbestanden en dependencybestanden zijn ongewijzigd. Verse backup en geïsoleerd herstel omvatten 41 tabellen en 127 rijen. Details staan in [het uitrolbewijs](deploy-evidence/staging-channel-wizards-2026-11-23.json).
+
+Vindplaats: **Jouw vereniging → Koppelingen → Koppelen** bij Instagram, Facebook of X. Ververs een al geopende stagingpagina om de nieuwe interface te laden. Zonder provideractivatie zijn de voorbereiding en uitleg beschikbaar; echte toestemming kan nog niet worden gestart.
