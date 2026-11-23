@@ -6,7 +6,7 @@ import {
 import {useCastiq, publicationMode} from './store';
 import {Modal} from './ui';
 import './social-connections.css';
-import {api} from './serverClient';
+import {api, ServerError} from './serverClient';
 
 type Provider = 'Instagram' | 'Facebook' | 'X';
 type AccountType = 'business' | 'creator' | 'page' | 'profile';
@@ -320,21 +320,295 @@ function DemoSocialConnections({onNavigate}: {onNavigate?: (page: string) => voi
 }
 
 
-type ServerChannel={provider:'instagram'|'facebook'|'x';name:Provider;configured:boolean;version:number;status:string;accountName:string;accountType?:string;destinations:string[];checkedAt:string|null;expiresAt:string|null;login:string};
-type ServerChannelList={publicationMode:string;providers:ServerChannel[]};
-type OAuthFlow={flowId:string;provider:string;status:string;errorCode?:string;candidates:{id:string;name:string;type:string;destinations:string[]}[]};
-const channelStatus:Record<string,string>={connected:'Geverifieerde koppeling',disconnected:'Niet gekoppeld',expired:'Toegang verlopen',revoked:'Toegang ingetrokken',verification_failed:'Controle mislukt',revocation_pending:'Intrekking nog niet bevestigd'};
-export function SocialConnections(props:{onNavigate?:(page:string)=>void}){const {mode}=useCastiq();return mode==='demo'?<DemoSocialConnections {...props}/>:<ServerSocialConnections {...props}/>;}
-function ServerSocialConnections({onNavigate}:{onNavigate?:(page:string)=>void}){
- const {actor,state,reload,command,toast}=useCastiq();const [data,setData]=useState<ServerChannelList|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[wizard,setWizard]=useState<ServerChannel|null>(null),[flow,setFlow]=useState<OAuthFlow|null>(null),[selection,setSelection]=useState(''),[disconnect,setDisconnect]=useState<ServerChannel|null>(null);const generation=useRef(0);
- const storageKey=`castiq-channel-flow:${actor?.id}:${actor?.clubId}`;
- const paused=(state.v1 as typeof state.v1 & {publicationPaused?:boolean}).publicationPaused===true;
- async function refresh(){const epoch=generation.current;const result=await api<ServerChannelList>('/api/channels');if(epoch===generation.current)setData(result);}
- useEffect(()=>{const epoch=++generation.current;let alive=true;setData(null);setError('');setFlow(null);setWizard(null);setSelection('');setBusy(false);if(actor?.role!=='club')return;void api<ServerChannelList>('/api/channels').then(v=>{if(alive&&epoch===generation.current)setData(v);}).catch(e=>{if(alive&&epoch===generation.current)setError(e.message);});const id=sessionStorage.getItem(storageKey);if(id)void api<OAuthFlow>('/api/channels/flows/'+id).then(v=>{if(alive&&epoch===generation.current)setFlow(v);}).catch(()=>{if(alive)sessionStorage.removeItem(storageKey);});return()=>{alive=false;generation.current++;};},[actor?.id,actor?.clubId]);
- useEffect(()=>{if(!flow||!['pending','processing'].includes(flow.status))return;const epoch=generation.current;let alive=true;const timer=window.setInterval(()=>{void api<OAuthFlow>('/api/channels/flows/'+flow.flowId).then(v=>{if(alive&&epoch===generation.current)setFlow(v);}).catch(e=>{if(alive&&epoch===generation.current)setError(e.message);});},2500);return()=>{alive=false;window.clearInterval(timer);};},[flow?.flowId,flow?.status]);
- async function run(action:()=>Promise<void>){const epoch=generation.current;setBusy(true);setError('');try{await action();}catch(e){if(epoch===generation.current)setError((e as Error).message);}finally{if(epoch===generation.current)setBusy(false);}}
- async function start(channel:ServerChannel){const epoch=generation.current,popup=window.open('about:blank','_blank');if(popup)popup.opener=null;try{const result=await api<{flowId:string;authorizationUrl:string}>(`/api/channels/${channel.provider}/start`,{method:'POST',body:JSON.stringify({expectedVersion:channel.version})});if(epoch!==generation.current){popup?.close();return;}sessionStorage.setItem(storageKey,result.flowId);setFlow({flowId:result.flowId,provider:channel.provider,status:'pending',candidates:[]});setWizard(null);if(popup)popup.location.href=result.authorizationUrl;else location.assign(result.authorizationUrl);}catch(e){popup?.close();throw e;}}
- async function choose(){if(!flow||!selection)return;const epoch=generation.current;await api(`/api/channels/${flow.provider}/select`,{method:'POST',body:JSON.stringify({flowId:flow.flowId,accountId:selection})});if(epoch!==generation.current)return;sessionStorage.removeItem(storageKey);setFlow(null);setSelection('');await refresh();await reload();toast('Providerkoppeling geverifieerd. Er is geen bericht gepubliceerd.');}
- if(actor?.role!=='club')return <div role="alert" className="local-access-error">Alleen de bevoegde clubbeheerder kan eigen kanalen beheren.</div>;
- return <div className="social-connections"><header className="page-title"><div><h1>Koppelingen</h1><p>Verbind de eigen clubaccounts via de officiële provider.</p></div><button className="btn btn-secondary" disabled={busy} onClick={()=>void run(refresh)}><RefreshCw size={15}/> Verversen</button></header><p className="social-server-note">Een geverifieerde koppeling is geen publicatie. Kanaalopdrachten blijven uitsluitend in de expliciete sandbox.</p>{error&&<p role="alert" className="local-access-error">{error}</p>}{!data&&!error&&<p role="status">Kanaalkoppelingen laden…</p>}<div className="social-grid">{data?.providers.map(channel=><section key={channel.provider} className="social-card"><div className="social-card-heading"><ProviderMark provider={channel.name}/><h2>{channel.name}</h2></div><strong>{channel.accountName||'Nog geen clubaccount geselecteerd'}</strong><p role="status">{channelStatus[channel.status]||channel.status}</p>{channel.checkedAt&&<small>Gecontroleerd {timeFormat.format(new Date(channel.checkedAt))}</small>}{channel.expiresAt&&<p>Toegang geldig tot {timeFormat.format(new Date(channel.expiresAt))}</p>}<p>{channel.destinations.join(' · ')||'Geen beschikbare bestemmingen'}</p>{!channel.configured&&<p className="social-server-note">Nog niet geconfigureerd: provider-app, servercredentials en goedgekeurde rechten ontbreken. Er wordt geen demo-toestemming als echte koppeling gebruikt.</p>}<div className="social-card-actions"><button className="btn btn-primary" disabled={busy||!channel.configured||channel.status==='revocation_pending'} onClick={()=>setWizard(channel)}>{channel.status==='connected'?'Opnieuw koppelen':'Koppelen'}</button>{channel.version>0&&<><button className="btn btn-secondary" disabled={busy||!channel.configured||['disconnected','revocation_pending'].includes(channel.status)} onClick={()=>void run(async()=>{await api(`/api/channels/${channel.provider}/test`,{method:'POST',body:JSON.stringify({expectedVersion:channel.version})});await refresh();await reload();toast('Statuscontrole afgerond. Er is geen bericht gepubliceerd.');})}><FlaskConical size={15}/> Koppeling testen</button><button className="btn btn-secondary" disabled={busy||channel.status==='disconnected'} onClick={()=>setDisconnect(channel)}>{channel.status==='revocation_pending'?'Intrekking opnieuw controleren':'Ontkoppelen'}</button></>}</div></section>)}</div><section className="social-server-note"><strong>Clubbrede publicatie</strong><p>{paused?'Alle nieuwe sandboxopdrachten en de worker zijn gepauzeerd.':'Pauzeer nieuwe opdrachten en de worker voor alle kanalen.'}</p><button className="btn btn-secondary" disabled={busy} onClick={()=>void run(async()=>{await command('publication.pause',{paused:!paused});})}>{paused?'Hervatten':'Pauzeren'}</button> <button className="btn btn-secondary" onClick={()=>onNavigate?.('sources')}>Wedstrijdbronnen</button></section>{wizard&&<Modal title={`${wizard.name} koppelen`} onClose={()=>setWizard(null)}><div className="social-wizard"><p>{guides[wizard.name].requires}</p><ol className="social-checklist">{guides[wizard.name].prepare.map(text=><li key={text}>{text.replace('Voor de demo biedt Bedrijf feed en Stories. De Creator-route in deze demo biedt feed.','Beschikbare bestemmingen worden uit het geverifieerde account afgeleid.')}</li>)}</ol><p>Je gaat naar het officiële toestemmingsscherm. Castiq vraagt hier nooit om je providerwachtwoord. Na terugkeer kies en bevestig je het account voor {state.club.name}.</p><p>{wizard.provider==='instagram'?'Deze aansluiting gebruikt Instagram Login voor professionele accounts. Unified Login is een afzonderlijke Meta-configuratie.':wizard.login}</p><a href={wizard.provider==='instagram'?'https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/business-login':guides[wizard.name].help} target="_blank" rel="noreferrer">Officiële providerinformatie</a><div className="modal-actions"><button className="btn btn-secondary" onClick={()=>setWizard(null)}>Annuleren</button><button className="btn btn-primary" disabled={busy} onClick={()=>void run(()=>start(wizard))}>Naar {wizard.name}</button></div></div></Modal>}{flow&&<section className="social-server-note" aria-live="polite"><h2>Koppelsessie</h2>{['pending','processing'].includes(flow.status)?<p>Wacht op de officiële provider. Geef toestemming of weiger in het geopende venster. Daarna wordt de status hier opgehaald.</p>:flow.status==='select'?<><p>Kies het account dat bij {state.club.name} hoort. De oude koppeling blijft behouden tot je bevestigt.</p>{flow.candidates.map(c=><label className="social-server-choice" key={c.id}><input type="radio" name="provider-account" value={c.id} checked={selection===c.id} onChange={()=>setSelection(c.id)}/><span>{c.name} · {c.type}<small>{c.destinations.join(' · ')}</small></span></label>)}<button className="btn btn-primary" disabled={busy||!selection} onClick={()=>void run(choose)}>Account voor deze vereniging bevestigen</button></>:<p>{flow.status==='connected'?'Deze koppelsessie is afgerond.':flow.status==='denied'?'Je hebt de toestemming geweigerd. De bestaande koppeling is behouden.':'De koppelsessie is verlopen of niet bevestigd. Begin opnieuw via Koppelen.'}</p>}<button className="btn btn-secondary" onClick={()=>{sessionStorage.removeItem(storageKey);setFlow(null);}}>Koppelsessie sluiten</button></section>}{disconnect&&<Modal title="Kanaal ontkoppelen" onClose={()=>setDisconnect(null)}><p>De providerbestemming verdwijnt direct voor nieuwe opdrachten. Niet-verzonden opdrachten worden geannuleerd; eerdere resultaten en onzekere lopende opdrachten blijven bewaard. Een mislukte intrekking blijft zichtbaar om opnieuw te controleren.</p><div className="modal-actions"><button className="btn btn-secondary" onClick={()=>setDisconnect(null)}>Annuleren</button><button className="btn btn-primary" disabled={busy} onClick={()=>void run(async()=>{await api(`/api/channels/${disconnect.provider}`,{method:'DELETE',body:JSON.stringify({expectedVersion:disconnect.version})});setDisconnect(null);await refresh();await reload();})}>Ontkoppelen bevestigen</button></div></Modal>}</div>;
+type ServerChannel = {
+  provider: 'instagram' | 'facebook' | 'x'; name: Provider; configured: boolean;
+  version: number; status: string; accountName: string; accountType?: string;
+  destinations: string[]; checkedAt: string | null; expiresAt: string | null; login: string;
+};
+type ServerChannelList = {publicationMode: string; providers: ServerChannel[]};
+type OAuthCandidate = {id: string; name: string; type: string; destinations: string[]};
+type OAuthFlow = {flowId: string; provider: string; status: string; errorCode?: string; candidates: OAuthCandidate[]};
+const channelStatus: Record<string, string> = {
+  connected: 'Gekoppeld', disconnected: 'Niet gekoppeld', expired: 'Toegang verlopen',
+  revoked: 'Toegang ingetrokken', verification_failed: 'Controle nodig', revocation_pending: 'Ontkoppelen wordt afgerond',
+};
+const serverGuides = {
+  Instagram: {
+    requires: 'Een professioneel Instagram-account van je club (Bedrijf of Creator).',
+    prepare: ['Open Instagram en controleer of je het clubaccount gebruikt.',
+      'Controleer bij Instellingen en activiteit of het account professioneel is (Bedrijf of Creator).',
+      'Zorg dat je kunt inloggen en houd eventuele tweestapsverificatie bij de hand.'],
+    consent: 'Je geeft toestemming bij Instagram zelf. Controleer daar de accountnaam en geef Castiq toegang tot het professionele clubaccount. Een Facebook-pagina is voor deze aansluiting niet nodig.',
+    permissions: ['Het professionele clubaccount herkennen', 'Namens het gekozen account berichten publiceren'],
+    help: 'https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api',
+    helpLabel: 'Uitleg van Meta over Instagram',
+    missing: 'Controleer of het account professioneel is en of je met het juiste clubaccount toestemming hebt gegeven.',
+  },
+  Facebook: {
+    requires: 'Een Facebook-pagina van je club en toegang om daarop berichten te plaatsen.',
+    prepare: ['Open Facebook en ga naar de pagina van je club.',
+      'Controleer bij Paginatoegang of je namens de pagina content mag publiceren.',
+      'Houd je eigen Facebook-aanmelding bij de hand. Straks kies je welke clubpagina je koppelt.'],
+    consent: 'Je logt in bij Facebook met het account waarmee je de clubpagina beheert. Geef alleen toegang tot de pagina die je in Castiq wilt gebruiken.',
+    permissions: ['De pagina’s bekijken die je mag beheren', 'Namens de gekozen clubpagina berichten publiceren'],
+    help: 'https://developers.facebook.com/docs/graph-api/reference/page/feed/',
+    helpLabel: 'Uitleg van Meta over Facebook-pagina’s',
+    missing: 'Controleer je paginatoegang en of je de clubpagina hebt aangevinkt bij Facebook. Alleen pagina’s waarop je mag publiceren verschijnen hier.',
+  },
+  X: {
+    requires: 'Toegang tot het X-account van je club.',
+    prepare: ['Open X en controleer de @naam van je clubaccount.',
+      'Wissel naar het clubaccount als je nu met je eigen profiel bent aangemeld.',
+      'Houd je aanmelding en eventuele tweestapsverificatie bij de hand.'],
+    consent: 'X opent zijn eigen aanmeld- en toestemmingsscherm. Controleer de @naam voordat je Castiq toegang geeft.',
+    permissions: ['Het X-profiel van je club herkennen', 'Namens het gekozen account berichten publiceren'],
+    help: 'https://help.x.com/en/managing-your-account/connect-or-revoke-access-to-third-party-apps',
+    helpLabel: 'Uitleg van X over gekoppelde apps',
+    missing: 'Controleer of je op X met het juiste clubaccount bent aangemeld. Start de toestemming opnieuw als je een ander account wilt kiezen.',
+  },
+};
+const accountTypeLabel: Record<string, string> = {business: 'Bedrijf', creator: 'Creator', professional: 'Professioneel account', page: 'Facebook-pagina', profile: 'X-account'};
+function flowMessage(flow: OAuthFlow) {
+  if (flow.status === 'denied') return 'Je hebt geen toestemming gegeven. Je bestaande koppeling is behouden. Je kunt het opnieuw proberen.';
+  if (flow.status === 'expired') return 'De tijd om te koppelen is verstreken. Start de toestemming opnieuw; je bestaande koppeling is behouden.';
+  if (flow.errorCode === 'no_eligible_accounts') return 'Er is geen geschikt clubaccount gevonden. Controleer je account en toegangsrechten en probeer opnieuw.';
+  if (flow.errorCode === 'missing_permissions') return 'Niet alle benodigde rechten zijn gegeven. Probeer opnieuw en controleer de gevraagde toegang.';
+  if (flow.errorCode === 'unsupported_account_type') return 'Dit account wordt niet ondersteund. Gebruik een professioneel clubaccount.';
+  return 'De koppeling kon niet worden bevestigd. Controleer je toegang en probeer opnieuw. Je bestaande koppeling is behouden.';
+}
+function storedFlow(key: string) {try {return sessionStorage.getItem(key);} catch {return null;}}
+function rememberFlow(key: string, value: string | null) {try {if (value) sessionStorage.setItem(key, value); else sessionStorage.removeItem(key);} catch {/* The open wizard still works when browser storage is unavailable. */}}
+
+export function SocialConnections(props: {onNavigate?: (page: string) => void}) {
+  const {mode} = useCastiq();
+  return mode === 'demo' ? <DemoSocialConnections {...props}/> : <ServerSocialConnections {...props}/>;
+}
+function ServerSocialConnections({onNavigate}: {onNavigate?: (page: string) => void}) {
+  const {actor, state, reload, command, toast} = useCastiq();
+  const [data, setData] = useState<ServerChannelList | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [wizard, setWizard] = useState<ServerChannel | null>(null);
+  const [step, setStep] = useState(0);
+  const [flow, setFlow] = useState<OAuthFlow | null>(null);
+  const [selection, setSelection] = useState('');
+  const [disconnect, setDisconnect] = useState<ServerChannel | null>(null);
+  const generation = useRef(0);
+  const groupId = useId();
+  const storageKey = `castiq-channel-flow:${actor?.id}:${actor?.clubId}`;
+  const paused = (state.v1 as typeof state.v1 & {publicationPaused?: boolean}).publicationPaused === true;
+  const currentChannel = data?.providers.find(channel => channel.provider === wizard?.provider) || wizard;
+  const activeFlow = flow?.provider === wizard?.provider ? flow : null;
+  const candidates = activeFlow?.candidates || [];
+  const choice = candidates.find(candidate => candidate.id === selection);
+  const waiting = activeFlow && ['pending', 'processing'].includes(activeFlow.status);
+  const failed = activeFlow && ['denied', 'expired', 'failed'].includes(activeFlow.status);
+  const dismissState = useRef({busy, activeFlow});
+  dismissState.current = {busy, activeFlow};
+  const linkedCount = data?.providers.filter(channel => channel.status === 'connected').length || 0;
+
+  async function refresh() {
+    const epoch = generation.current;
+    const result = await api<ServerChannelList>('/api/channels');
+    if (epoch === generation.current) setData(result);
+  }
+  useEffect(() => {
+    const epoch = ++generation.current;
+    let alive = true;
+    setData(null); setError(''); setFlow(null); setWizard(null); setSelection(''); setBusy(false); setDisconnect(null);
+    if (actor?.role !== 'club') return;
+    void (async () => {
+      try {
+        const result = await api<ServerChannelList>('/api/channels');
+        if (!alive || epoch !== generation.current) return;
+        setData(result);
+        const id = storedFlow(storageKey);
+        if (!id) return;
+        try {
+          const restored = await api<OAuthFlow>('/api/channels/flows/' + id);
+          if (!alive || epoch !== generation.current) return;
+          const channel = result.providers.find(item => item.provider === restored.provider);
+          setFlow(restored);
+          if (channel) {setWizard(channel); setStep(restored.status === 'select' ? 2 : restored.status === 'connected' ? 4 : 1);}
+        } catch {if (alive && epoch === generation.current) rememberFlow(storageKey, null);}
+      } catch (failure) {if (alive && epoch === generation.current) setError((failure as Error).message);}
+    })();
+    return () => {alive = false; generation.current++;};
+  }, [actor?.id, actor?.clubId]);
+  useEffect(() => {
+    if (!flow || !['pending', 'processing'].includes(flow.status)) return;
+    const epoch = generation.current;
+    let alive = true;
+    const timer = window.setInterval(() => {
+      void api<OAuthFlow>('/api/channels/flows/' + flow.flowId).then(result => {
+        if (alive && epoch === generation.current) setFlow(result);
+      }).catch(failure => {if (alive && epoch === generation.current) setError(failure.message);});
+    }, 2500);
+    return () => {alive = false; window.clearInterval(timer);};
+  }, [flow?.flowId, flow?.status]);
+  useEffect(() => {setSelection('');}, [flow?.flowId]);
+  useEffect(() => {
+    if (!activeFlow) return;
+    if (activeFlow.status === 'select') setStep(current => current < 2 ? 2 : current);
+    else if (activeFlow.status === 'connected') setStep(4);
+    else if (['denied', 'expired', 'failed'].includes(activeFlow.status)) setStep(1);
+  }, [flow?.flowId, flow?.status, wizard?.provider]);
+
+  async function run(action: () => Promise<void>) {
+    const epoch = generation.current;
+    setBusy(true); setError('');
+    try {await action();}
+    catch (failure) {if (epoch === generation.current) setError((failure as Error).message);}
+    finally {if (epoch === generation.current) setBusy(false);}
+  }
+  function openWizard(channel: ServerChannel) {
+    setError(''); setWizard(channel);
+    const existing = flow?.provider === channel.provider ? flow : null;
+    setStep(existing ? existing.status === 'select' ? 2 : existing.status === 'connected' ? 4 : 1 : 0);
+    if (!existing) setSelection('');
+  }
+  function closeWizard() {
+    if (dismissState.current.busy) return;
+    setWizard(null); setError('');
+    if (dismissState.current.activeFlow?.status === 'connected') {setFlow(null); setSelection(''); rememberFlow(storageKey, null);}
+  }
+  async function start(channel: ServerChannel) {
+    if (!channel.configured || channel.status === 'revocation_pending') return;
+    const epoch = generation.current;
+    const popup = window.open('about:blank', '_blank');
+    if (popup) popup.opener = null;
+    try {
+      const result = await api<{flowId: string; authorizationUrl: string}>(`/api/channels/${channel.provider}/start`, {
+        method: 'POST', body: JSON.stringify({expectedVersion: channel.version}),
+      });
+      if (epoch !== generation.current) {popup?.close(); return;}
+      rememberFlow(storageKey, result.flowId);
+      setFlow({flowId: result.flowId, provider: channel.provider, status: 'pending', candidates: []});
+      setSelection(''); setStep(1);
+      if (popup) popup.location.href = result.authorizationUrl;
+      else location.assign(result.authorizationUrl);
+    } catch (failure) {popup?.close(); throw failure;}
+  }
+  async function choose() {
+    if (!activeFlow || activeFlow.status !== 'select' || !choice) return;
+    const epoch = generation.current;
+    let saved: ServerChannelList;
+    try {
+      saved = await api<ServerChannelList>(`/api/channels/${activeFlow.provider}/select`, {
+        method: 'POST', body: JSON.stringify({flowId: activeFlow.flowId, accountId: choice.id}),
+      });
+    } catch (failure) {
+      if (epoch === generation.current && failure instanceof ServerError && ['flow_expired', 'conflict', 'not_found'].includes(failure.code)) {
+        setFlow({...activeFlow, status: failure.code === 'flow_expired' ? 'expired' : 'failed'});
+        setSelection(''); setStep(1); rememberFlow(storageKey, null);
+        await refresh().catch(() => {});
+      }
+      throw failure;
+    }
+    if (epoch !== generation.current) return;
+    setData(saved); setFlow({...activeFlow, status: 'connected'}); setStep(4);
+    rememberFlow(storageKey, null);
+    await reload();
+    if (epoch === generation.current) toast('De koppeling is bevestigd.');
+  }
+  async function checkFlow() {
+    if (!activeFlow) return;
+    const epoch = generation.current;
+    const result = await api<OAuthFlow>('/api/channels/flows/' + activeFlow.flowId);
+    if (epoch === generation.current) setFlow(result);
+  }
+  if (actor?.role !== 'club') return <div role="alert" className="local-access-error">Alleen de bevoegde clubbeheerder kan eigen kanalen beheren.</div>;
+
+  const guide = wizard ? serverGuides[wizard.name] : null;
+  const steps = ['Voorbereiden', 'Toestemming', wizard?.name === 'Facebook' ? 'Pagina kiezen' : 'Account kiezen', 'Controleren'];
+  return <section className="social-connections">
+    <header className="social-page-head"><div><h1>Koppelingen</h1><p>Verbind de clubaccounts. We begeleiden je stap voor stap.</p></div>
+      <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(refresh)}><RefreshCw size={15}/> Verversen</button>
+    </header>
+    {error && !wizard && <p role="alert" className="social-error"><CircleAlert size={16}/>{error}</p>}
+    {!data && !error && <p role="status">Kanaalkoppelingen laden…</p>}
+    {data && <section className="social-directory social-server-directory" aria-labelledby={`${groupId}-channels`}>
+      <header><div><Link2 size={18} aria-hidden="true"/><h2 id={`${groupId}-channels`}>Sociale kanalen</h2></div><span>{linkedCount} van {data.providers.length} gekoppeld</span></header>
+      <ul>{data.providers.map(channel => <li className="social-channel" key={channel.provider}>
+        <div className="social-channel-provider"><ProviderMark provider={channel.name} small/><div><strong>{channel.name}</strong>
+          <span>{channel.accountName || (channel.name === 'Facebook' ? 'Koppel de Facebook-pagina van je club' : `Koppel het ${channel.name}-account van je club`)}</span></div></div>
+        <div className="social-channel-options" aria-label={`Bestemmingen ${channel.name}`}>
+          {(channel.destinations.length ? channel.destinations : destinations[channel.name]).map(destination => <span key={destination}>{destination}</span>)}
+        </div>
+        <div className="social-channel-state"><span data-state={channel.status} data-linked={channel.status === 'connected'}>{channelStatus[channel.status] || 'Controle nodig'}</span>
+          <small>{!channel.configured ? 'Aansluiting nog niet beschikbaar' : channel.checkedAt ? `Gecontroleerd ${timeFormat.format(new Date(channel.checkedAt))}` : 'Klaar om te koppelen'}</small>
+        </div>
+        <div className="social-channel-actions">
+          {channel.status !== 'revocation_pending' && <button type="button" className="btn btn-primary" aria-label={`${channel.name} ${channel.status === 'connected' ? 'opnieuw koppelen' : 'koppelen'}`} disabled={busy} onClick={() => openWizard(channel)}><Link2 size={15}/>{channel.status === 'connected' ? 'Opnieuw koppelen' : 'Koppelen'}</button>}
+          {channel.version > 0 && <>
+            {!['disconnected', 'revocation_pending'].includes(channel.status) && <button type="button" className="social-icon-button" aria-label={`Test ${channel.name}-koppeling`} title="Koppeling controleren" disabled={busy || !channel.configured} onClick={() => void run(async () => {
+              await api(`/api/channels/${channel.provider}/test`, {method: 'POST', body: JSON.stringify({expectedVersion: channel.version})});
+              await refresh(); await reload(); toast('De status is gecontroleerd. Er is geen bericht geplaatst.');
+            })}><FlaskConical size={17}/></button>}
+            {channel.status !== 'disconnected' && <button type="button" className="social-icon-button social-unplug" aria-label={`${channel.name} ${channel.status === 'revocation_pending' ? 'ontkoppeling controleren' : 'ontkoppelen'}`} title={channel.status === 'revocation_pending' ? 'Ontkoppeling controleren' : 'Ontkoppelen'} disabled={busy} onClick={() => setDisconnect(channel)}><Unplug size={17}/></button>}
+          </>}
+        </div>
+      </li>)}</ul>
+    </section>}
+    {flow && !wizard && flow.status !== 'connected' && <div className="social-pending-session"><div><strong>Je koppeling is nog niet afgerond</strong><p>Ga verder met {data?.providers.find(channel => channel.provider === flow.provider)?.name || 'je kanaal'}.</p></div>
+      <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => {const channel = data?.providers.find(item => item.provider === flow.provider); if (channel) openWizard(channel);}}>Verder gaan</button>
+    </div>}
+    <div className="social-shortcuts">
+      <section><span className="social-shortcut-icon">{paused ? <Play size={19}/> : <Pause size={19}/>}</span><div><h2>Clubbrede publicatie</h2><p>{paused ? 'Het versturen van nieuwe berichten is gepauzeerd.' : 'Pauzeer het versturen voor alle clubkanalen tegelijk.'}</p></div>
+        <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(async () => {await command('publication.pause', {paused: !paused});})}>{paused ? 'Hervatten' : 'Pauzeren'}</button>
+      </section>
+      <section><span className="social-shortcut-icon"><Globe2 size={19}/></span><div><h2>Wedstrijdbronnen</h2><p>Beheer waar programma en uitslagen vandaan komen.</p></div>
+        <button type="button" className="btn btn-secondary" onClick={() => onNavigate?.('sources')}>Beheren <ExternalLink size={14}/></button>
+      </section>
+    </div>
+    <p className="social-environment-note"><FlaskConical size={15} aria-hidden="true"/> Publiceren wordt hier alleen getest. Er verschijnen geen berichten op je sociale kanalen.</p>
+
+    {wizard && currentChannel && guide && <Modal title={`${wizard.name} koppelen`} onClose={closeWizard}>
+      <div className="social-wizard">
+        <div className="social-wizard-provider"><ProviderMark provider={wizard.name}/><div><strong>{state.club.name}</strong><span>Verbinding met {wizard.name}</span></div><LockKeyhole size={18} aria-label="Beveiligde verbinding"/></div>
+        <ol className="social-steps" aria-label="Stappen">{steps.map((title, index) => <li key={title} aria-current={step === index ? 'step' : undefined} data-status={step === index ? 'current' : step > index ? 'done' : 'next'}><span>{step > index ? <Check size={14}/> : index + 1}</span><small>{title}</small></li>)}</ol>
+        {error && <p role="alert" className="social-error"><CircleAlert size={16}/>{error}</p>}
+        {step === 4 ? <section className="social-connection-result" aria-live="polite"><span className="social-success-mark"><Check size={28}/></span><h3>Koppeling bevestigd</h3><p>{choice?.name || currentChannel.accountName || wizard.name} is gekoppeld aan {state.club.name}.</p><p>Je account is gecontroleerd. Er is geen bericht geplaatst.</p></section> :
+          <section className="social-wizard-content" aria-labelledby={`${groupId}-step`}>
+            <h3 id={`${groupId}-step`} aria-live="polite">{steps[step]}</h3>
+            {step === 0 && <><p>{guide.requires}</p><ol className="social-checklist">{guide.prepare.map(text => <li key={text}>{text}</li>)}</ol></>}
+            {step === 1 && <>
+              {!waiting && !failed && activeFlow?.status !== 'select' && <><p>{guide.consent}</p><ul className="social-permissions" aria-label="Gevraagde toegang">{guide.permissions.map(text => <li key={text}><Check size={15} aria-hidden="true"/>{text}</li>)}</ul>
+                <p className="social-safe-note"><LockKeyhole size={16} aria-hidden="true"/> Je wachtwoord vul je alleen bij {wizard.name} in. Castiq vraagt hier niet om je wachtwoord.</p></>}
+              {!currentChannel.configured && <div className="social-setup-notice" role="status"><CircleAlert size={20} aria-hidden="true"/><div><strong>Koppelen is nog niet beschikbaar</strong><p>De aansluiting met {wizard.name} is nog niet geactiveerd door Castiq. Je club hoeft nu niets in te stellen. Zodra de aansluiting beschikbaar is, ga je hier verder.</p></div></div>}
+              {waiting && <div className="social-waiting" role="status"><ExternalLink size={23}/><strong>Rond de toestemming af bij {wizard.name}</strong><p>Ga naar het geopende venster. Kom daarna hier terug; de wizard gaat automatisch verder.</p><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(checkFlow)}><RefreshCw size={15}/> Status controleren</button></div>}
+              {failed && <div className="social-setup-notice" role="alert"><CircleAlert size={20}/><div><strong>{activeFlow.status === 'denied' ? 'Geen toestemming gegeven' : activeFlow.status === 'expired' ? 'Koppelsessie verlopen' : 'Koppelen niet gelukt'}</strong><p>{flowMessage(activeFlow)}</p></div></div>}
+              {activeFlow?.status === 'select' && <p className="social-safe-note"><Check size={16}/> Toestemming ontvangen. Ga verder om het juiste clubaccount te kiezen.</p>}
+            </>}
+            {step === 2 && <>
+              <p>{wizard.name === 'Facebook' ? 'Welke pagina hoort bij je vereniging?' : 'Welk account hoort bij je vereniging?'} Je bestaande koppeling blijft behouden totdat je bevestigt.</p>
+              <fieldset className="social-options social-accounts"><legend>{wizard.name === 'Facebook' ? 'Beschikbare pagina’s' : 'Beschikbare accounts'}</legend>
+                {candidates.map(candidate => <label key={candidate.id} className="social-account-option"><input type="radio" name={`${groupId}-account`} value={candidate.id} checked={selection === candidate.id} onChange={() => setSelection(candidate.id)}/><span><strong>{candidate.name}</strong><small>{accountTypeLabel[candidate.type] || 'Clubaccount'} · {candidate.destinations.join(' · ')}</small></span></label>)}
+              </fieldset>
+              {!candidates.length && <p role="status">Er zijn nog geen accounts beschikbaar. Ga terug om opnieuw toestemming te geven.</p>}
+              <details className="social-help"><summary>Ik zie mijn {wizard.name === 'Facebook' ? 'pagina' : 'account'} niet</summary><p>{guide.missing}</p></details>
+            </>}
+            {step === 3 && choice && <><p>Controleer de gegevens voordat je de koppeling bevestigt.</p><dl className="social-summary"><div><dt>Vereniging</dt><dd>{state.club.name}</dd></div><div><dt>{wizard.name === 'Facebook' ? 'Pagina' : 'Account'}</dt><dd>{choice.name}</dd></div><div><dt>Bestemmingen</dt><dd>{choice.destinations.join(' · ')}</dd></div></dl><p className="social-safe-note"><ListChecks size={16}/> We controleren de koppeling. Met deze stap plaats je geen bericht.</p></>}
+            <div className="social-docs"><a href={guide.help} target="_blank" rel="noreferrer">{guide.helpLabel} <ExternalLink size={13} aria-hidden="true"/></a></div>
+          </section>}
+        <div className="social-wizard-footer">
+          {step === 4 ? <span/> : <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => {
+            setError(''); if (step === 0) closeWizard(); else setStep(step - 1);
+          }}>{step === 0 ? 'Annuleren' : 'Terug'}</button>}
+          <div>{step === 4 ? <button type="button" className="btn btn-primary" onClick={closeWizard}>Gereed <Check size={16}/></button> :
+            step === 3 ? <button type="button" className="btn btn-primary" disabled={busy || !choice || activeFlow?.status !== 'select'} onClick={() => void run(choose)}>{busy ? 'Koppeling bevestigen…' : 'Account koppelen'}</button> :
+            step === 2 ? <button type="button" className="btn btn-primary" disabled={busy || !choice} onClick={() => setStep(3)}>Verder</button> :
+            step === 1 ? waiting ? <button type="button" className="btn btn-secondary" disabled={busy} onClick={closeWizard}>Later verder</button> :
+              activeFlow?.status === 'select' ? <button type="button" className="btn btn-primary" disabled={busy} onClick={() => setStep(2)}>Verder</button> :
+              <button type="button" className="btn btn-primary" disabled={busy || !currentChannel.configured || currentChannel.status === 'revocation_pending'} onClick={() => void run(() => start(currentChannel))}>{busy ? 'Toestemming openen…' : failed ? 'Opnieuw proberen' : `Doorgaan naar ${wizard.name}`} <ExternalLink size={15}/></button> :
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => setStep(1)}>Verder</button>}
+          </div>
+        </div>
+      </div>
+    </Modal>}
+    {disconnect && <Modal title={`${disconnect.name} ontkoppelen`} onClose={() => {if (!dismissState.current.busy) setDisconnect(null);}}><div className="social-disconnect"><p>Dit account is daarna niet meer beschikbaar voor nieuwe berichten. Niet-verzonden opdrachten worden geannuleerd. Eerdere resultaten blijven bewaard.</p><div className="social-wizard-footer"><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => setDisconnect(null)}>Annuleren</button><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run(async () => {
+      await api(`/api/channels/${disconnect.provider}`, {method: 'DELETE', body: JSON.stringify({expectedVersion: disconnect.version})});
+      setDisconnect(null); await refresh(); await reload();
+    })}>{disconnect.status === 'revocation_pending' ? 'Ontkoppeling controleren' : 'Ontkoppelen bevestigen'}</button></div></div></Modal>}
+  </section>;
 }

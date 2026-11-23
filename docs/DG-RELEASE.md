@@ -1,6 +1,6 @@
 # Castiq releaseprocedure op dg-vps-08
 
-Bijgewerkt op 22 november 2026. De eerdere voorbereiding van 20 november is vervangen door de hieronder geverifieerde, per omgeving afgescheiden inrichting. Bron: `castiqnl/platform`, repository-ID `1446413160`, integratiebranch `main`; bestaande Fabelpad-inrichting is uitsluitend als contractreferentie gebruikt.
+Bijgewerkt op 23 november 2026. De eerdere voorbereiding van 20 november is vervangen door de hieronder geverifieerde, per omgeving afgescheiden inrichting. Bron: `castiqnl/platform`, repository-ID `1446413160`, integratiebranch `main`; bestaande Fabelpad-inrichting is uitsluitend als contractreferentie gebruikt.
 
 ## Contract
 
@@ -104,7 +104,7 @@ sudo -n systemctl enable castiq-vps08-staging.service castiq-vps08-staging-worke
 systemctl is-active castiq-vps08-staging.service castiq-vps08-staging-worker.service
 ```
 
-De huidige stagingrelease is `f38e8f77963761157315accfb6d96140f0cae9bb-45074332095-1-initial-20261122`. De werkelijke vrijgave en afzonderlijke Fabelpad-baseline vóór/na staan in [het uitrolbewijs](deploy-evidence/staging-release-2026-11-22.json). Fabelpad was tussen de oorspronkelijke voorbereiding en Castiq-activatie afzonderlijk vernieuwd; behoud bij een volgende release altijd de dan aangetroffen gezonde stand.
+De huidige stagingrelease is `4c39c3a6cf099ff6655b29cee15c67712bb4c14a-45263874016-1-initial-20261122`. De werkelijke vrijgave, verse backup met geïsoleerd herstel, migraties 001–010 en ongewijzigde Fabelpad-/productiegrenzen staan in [het uitrolbewijs van 23 november](deploy-evidence/staging-release-2026-11-23.json). De bestaande proxyconfiguratie is behouden. Behoud bij een volgende release altijd de dan aangetroffen gezonde stand.
 
 De marketing-/juridische pagina’s zijn publiek; alle persoonlijke en clubgegevens en beheerschermen vereisen server-gecontroleerde identiteit/rechten. De huidige kanaaladapter blijft uitsluitend sandbox. Een enqueue, export, timeout of demo-receipt is nooit een echte openbare post.
 
@@ -127,4 +127,4 @@ Bij een mislukte **eerste** activatie zonder vorige gezonde release stopt de hel
 
 Voer geen live rollback uit als test. Offline release-boundarytests dekken beide omgevingen, lockconflicten, fouten tijdens eerste activatie/herstel, schemagrenzen en blijvend behoud van de onafhankelijke ledger. Werkelijke deploymentresultaten en exacte SHA staan in [STATUS.md](STATUS.md).
 
-Op 22 november is `f38e8f7…` de **eerste volledig gezonde API-/workerrelease**; er is nog geen vorige gezonde combinatie en geen `previous`-link. De oorspronkelijke eigen `7cdb874…`-release had alleen een gezonde API. Haar artifact en runtime blijven bewaard, maar de markering is hernoemd naar `api-only-verified.json` en zij mag niet worden teruggezet als gezonde release. Een volgende geslaagde activatie bewaart de huidige complete combinatie als rollbackdoel.
+Sinds de activatie van 23 november wijst `previous` naar de volledig gezonde combinatie `f38e8f77963761157315accfb6d96140f0cae9bb-45074332095-1-initial-20261122`. Dertien geïsoleerde controles tonen dat deze oudere code met het uitgebreide schema kan werken. Het behouden compatibiliteitslabel `castiq-schema-v8` dekt die structurele compatibiliteit; oude code maakt geen nieuwe managed template-/pakketsnapshots en kent de nieuwe kanaalintrekkingscontrole niet. Na nieuwe managed activiteit: pauzeer bij een noodterugkeer de worker en beperk clubschrijfacties tot de juiste code is hersteld. Een gewone helperrollback herstart de worker, dus gebruik die dan niet zonder deze aanvullende operationele beperking. Er is geen live rollback als test uitgevoerd. De oorspronkelijke API-only release `7cdb874…` blijft uitgesloten als gezond rollbackdoel.

@@ -1,0 +1,654 @@
+{
+  "version": 1,
+  "date": "2026-11-23",
+  "verifiedAt": "2026-11-23T20:58:10.147989+00:00",
+  "repository": "castiqnl/platform",
+  "applicationSha": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a",
+  "origin": "https://staging.castiq.nl",
+  "scope": "Staging deployment only; anonymous public smoke, runtime database initialization and isolated candidate worker checks. Authenticated human sessions/provider consent were not exercised.",
+  "workflowRuns": {
+    "ci": 45262829146,
+    "stagingCandidate": 45263874016,
+    "stagingActivation": 45264399989
+  },
+  "beforeDeployment": {
+    "checkedAt": "2026-11-23T20:47:26.578713+00:00",
+    "host": "dg-vps-08",
+    "services": {
+      "fabelpad-vps08-staging": {
+        "MainPID": "764384",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "fabelpad-vps08-production": {
+        "MainPID": "768185",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "caddy": {
+        "MainPID": "4564",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "castiq-vps08-staging": {
+        "MainPID": "445770",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "castiq-vps08-staging-worker": {
+        "MainPID": "445797",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "castiq-vps08-production": {
+        "MainPID": "0",
+        "ActiveState": "inactive",
+        "SubState": "dead",
+        "UnitFileState": "disabled"
+      },
+      "castiq-vps08-production-worker": {
+        "MainPID": "0",
+        "ActiveState": "inactive",
+        "SubState": "dead",
+        "UnitFileState": "disabled"
+      }
+    },
+    "current": {
+      "fabelpad-vps08-staging": "releases/64c9c64ce1226893ac27efa8a3f6c1e0abc8cb64-45234251651-1",
+      "fabelpad-vps08-production": "releases/64c9c64ce1226893ac27efa8a3f6c1e0abc8cb64-45235225821-1",
+      "castiq-vps08-staging": "/srv/sites/castiq-vps08-staging/releases/f38e8f77963761157315accfb6d96140f0cae9bb-45074332095-1-initial-20261122",
+      "castiq-vps08-production": null
+    },
+    "health": {
+      "fabelpad-staging-loopback": {
+        "status": 200,
+        "exitCode": 0,
+        "port": 4188
+      },
+      "fabelpad-production-loopback": {
+        "status": 200,
+        "exitCode": 0,
+        "port": 4189
+      },
+      "fabelpad-staging-public": {
+        "status": 200,
+        "exitCode": 0
+      },
+      "castiq-staging-public": {
+        "status": 200,
+        "exitCode": 0
+      }
+    },
+    "configSha256": {
+      "/etc/caddy/Caddyfile": "3acfe7107fb2f3ec21e3c0292daf2725be21b79c707a41394c848b1ee3aeefab",
+      "/etc/caddy/sites/fabelpad-vps08-staging.caddy": "ba6facd1a010dab378eeb170cbaf26b2969c38f4fbfd735269a873280d039acb",
+      "/etc/caddy/sites/castiq-vps08-staging.caddy": "d080c4fd10730a6ff47bfb922990aae9e773a0b60d9f6d32280a57ef47fcc9eb"
+    },
+    "isolation": {
+      "castiq-vps08-staging": {
+        "proofPath": "/etc/dg-webservices/castiq-vps08-staging/control-plane-isolation.verified",
+        "mode": "0o600",
+        "rootOwned": true,
+        "app_isolated": true,
+        "build_and_runner_isolated": true,
+        "proxy_source": "127.0.0.2",
+        "unitHashesMatch": true
+      },
+      "castiq-vps08-production": {
+        "proofPath": "/etc/dg-webservices/castiq-vps08-production/control-plane-isolation.verified",
+        "mode": "0o600",
+        "rootOwned": true,
+        "app_isolated": true,
+        "build_and_runner_isolated": true,
+        "proxy_source": "127.0.0.2",
+        "unitHashesMatch": true
+      }
+    }
+  },
+  "afterActivation": {
+    "checkedAt": "2026-11-23T20:56:51.445938+00:00",
+    "host": "dg-vps-08",
+    "services": {
+      "fabelpad-vps08-staging": {
+        "MainPID": "764384",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "fabelpad-vps08-production": {
+        "MainPID": "768185",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "caddy": {
+        "MainPID": "4564",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "castiq-vps08-staging": {
+        "MainPID": "841977",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "castiq-vps08-staging-worker": {
+        "MainPID": "842004",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "castiq-vps08-production": {
+        "MainPID": "0",
+        "ActiveState": "inactive",
+        "SubState": "dead",
+        "UnitFileState": "disabled"
+      },
+      "castiq-vps08-production-worker": {
+        "MainPID": "0",
+        "ActiveState": "inactive",
+        "SubState": "dead",
+        "UnitFileState": "disabled"
+      }
+    },
+    "current": {
+      "fabelpad-vps08-staging": "releases/64c9c64ce1226893ac27efa8a3f6c1e0abc8cb64-45234251651-1",
+      "fabelpad-vps08-production": "releases/64c9c64ce1226893ac27efa8a3f6c1e0abc8cb64-45235225821-1",
+      "castiq-vps08-staging": "/srv/sites/castiq-vps08-staging/releases/4c39c3a6cf099ff6655b29cee15c67712bb4c14a-45263874016-1-initial-20261122",
+      "castiq-vps08-production": null
+    },
+    "health": {
+      "fabelpad-staging-loopback": {
+        "status": 200,
+        "exitCode": 0,
+        "port": 4188
+      },
+      "fabelpad-production-loopback": {
+        "status": 200,
+        "exitCode": 0,
+        "port": 4189
+      },
+      "fabelpad-staging-public": {
+        "status": 200,
+        "exitCode": 0
+      },
+      "castiq-staging-public": {
+        "status": 200,
+        "exitCode": 0
+      }
+    },
+    "configSha256": {
+      "/etc/caddy/Caddyfile": "3acfe7107fb2f3ec21e3c0292daf2725be21b79c707a41394c848b1ee3aeefab",
+      "/etc/caddy/sites/fabelpad-vps08-staging.caddy": "ba6facd1a010dab378eeb170cbaf26b2969c38f4fbfd735269a873280d039acb",
+      "/etc/caddy/sites/castiq-vps08-staging.caddy": "d080c4fd10730a6ff47bfb922990aae9e773a0b60d9f6d32280a57ef47fcc9eb"
+    },
+    "isolation": {
+      "castiq-vps08-staging": {
+        "proofPath": "/etc/dg-webservices/castiq-vps08-staging/control-plane-isolation.verified",
+        "mode": "0o600",
+        "rootOwned": true,
+        "app_isolated": true,
+        "build_and_runner_isolated": true,
+        "proxy_source": "127.0.0.2",
+        "unitHashesMatch": true
+      },
+      "castiq-vps08-production": {
+        "proofPath": "/etc/dg-webservices/castiq-vps08-production/control-plane-isolation.verified",
+        "mode": "0o600",
+        "rootOwned": true,
+        "app_isolated": true,
+        "build_and_runner_isolated": true,
+        "proxy_source": "127.0.0.2",
+        "unitHashesMatch": true
+      }
+    }
+  },
+  "boundaryComparison": {
+    "checkedAt": "2026-11-23T20:56:51.445938+00:00",
+    "allHealth200": true,
+    "protectedServicesUnchanged": {
+      "fabelpad-vps08-staging": true,
+      "fabelpad-vps08-production": true,
+      "caddy": true,
+      "castiq-vps08-production": true,
+      "castiq-vps08-production-worker": true
+    },
+    "protectedCurrentUnchanged": {
+      "fabelpad-vps08-staging": true,
+      "fabelpad-vps08-production": true,
+      "castiq-vps08-production": true
+    },
+    "proxyConfigHashesUnchanged": true,
+    "isolationStillVerified": true
+  },
+  "activePair": {
+    "at": "2026-11-23T20:57:48.995813+00:00",
+    "current": "/srv/sites/castiq-vps08-staging/releases/4c39c3a6cf099ff6655b29cee15c67712bb4c14a-45263874016-1-initial-20261122",
+    "previous": "/srv/sites/castiq-vps08-staging/releases/f38e8f77963761157315accfb6d96140f0cae9bb-45074332095-1-initial-20261122",
+    "pair": {
+      "sha": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a",
+      "releaseId": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a-45263874016-1-initial-20261122",
+      "runtimeConfigId": "initial-20261122",
+      "activationRunId": "45264399989-1",
+      "databaseCompatibility": "castiq-schema-v8"
+    },
+    "healthy": {
+      "sha": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a",
+      "runtimeConfigId": "initial-20261122",
+      "checks": [
+        "loopback-health",
+        "readiness",
+        "worker-running"
+      ],
+      "publicAcceptance": false
+    },
+    "services": {
+      "castiq-vps08-staging.service": {
+        "MainPID": "841977",
+        "NRestarts": "0",
+        "ExecMainStatus": "0",
+        "ActiveState": "active",
+        "SubState": "running",
+        "ActiveEnterTimestamp": "Mon 2026-11-23 21:56:20 CET"
+      },
+      "castiq-vps08-staging-worker.service": {
+        "MainPID": "842004",
+        "NRestarts": "0",
+        "ExecMainStatus": "0",
+        "ActiveState": "active",
+        "SubState": "running",
+        "ActiveEnterTimestamp": "Mon 2026-11-23 21:56:21 CET"
+      }
+    },
+    "events": {
+      "castiq-vps08-staging.service": {
+        "backgroundErrorCount": 0,
+        "sandboxWorkerObserved": false,
+        "privacyDryRunObserved": false
+      },
+      "castiq-vps08-staging-worker.service": {
+        "backgroundErrorCount": 0,
+        "sandboxWorkerObserved": true,
+        "privacyDryRunObserved": true
+      }
+    }
+  },
+  "publicHealth": {
+    "/api/health": {
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "environment": "staging",
+        "publicationMode": "sandbox-only",
+        "authMode": "supabase",
+        "commit": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a"
+      }
+    },
+    "/api/readiness": {
+      "status": 200,
+      "body": {
+        "status": "ready",
+        "commit": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a"
+      }
+    }
+  },
+  "backupBeforeMigrations": {
+    "backupId": "backup-1a2fe4bd-5e7f-4741-9bae-8deb74f3dfc5",
+    "encrypted": true,
+    "schema": "castiq",
+    "tables": 31,
+    "rows": 32,
+    "uploads": 0,
+    "registered": true,
+    "providerRetentionVerified": false
+  },
+  "isolatedRestore": {
+    "backupId": "backup-1a2fe4bd-5e7f-4741-9bae-8deb74f3dfc5",
+    "encryptedBackupAuthenticated": true,
+    "isolatedPostgresVersion": "17.12 (Debian 17.12-1.pgdg12+1)",
+    "restoredTables": 31,
+    "restoredRows": 32,
+    "allTableCountsAndDigestsMatched": true,
+    "uploadsAuthenticated": 0,
+    "temporaryDataStorage": "tmpfs",
+    "network": "none",
+    "plaintextDumpFilesCreated": false,
+    "providerRetentionVerified": false
+  },
+  "candidateProbe": {
+    "version": 1,
+    "environment": "staging",
+    "siteId": "castiq-vps08-staging",
+    "sha": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a",
+    "candidateId": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a-45263874016-1",
+    "runtimeConfigId": "initial-20261122",
+    "verifiedAt": "2026-11-23T20:55:02.843908+00:00",
+    "transientUnit": "castiq-vps08-staging-candidate-probe-99df3b82cfac42a79cbd94eff1d5d27e",
+    "serviceUser": "app-cas-v08-stg",
+    "port": 4194,
+    "managedPort": 4184,
+    "existingStagingPreserved": true,
+    "managedBaseline": {
+      "current": "/srv/sites/castiq-vps08-staging/releases/f38e8f77963761157315accfb6d96140f0cae9bb-45074332095-1-initial-20261122",
+      "units": {
+        "castiq-vps08-staging.service": {
+          "MainPID": "837048",
+          "ActiveState": "active",
+          "SubState": "running"
+        },
+        "castiq-vps08-staging-worker.service": {
+          "MainPID": "837049",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      }
+    },
+    "sourceAddress": "127.0.0.2",
+    "health": 200,
+    "readiness": 200,
+    "expectedMigrationHashes": {
+      "001_workspace.sql": "ac60345ae60db8c89368d4148c51b2e9234a1a291bd6f414d93edc8c2bcce766",
+      "002_media_integrity.sql": "664c05606d33c33ba9f3fbe02d453d2dd2614b57912b164d57bb3816abf22490",
+      "003_privacy.sql": "d3286cd96b8d04ccc40a32111260a12b548e158aa5079bff4f783ee3054763d2",
+      "004_mail.sql": "765f837863b6953980e14f367f1e4a60177b7ce4555c965693168e7a12a57045",
+      "005_account_operations.sql": "6d007cce9cdb4d21c9173a14a627fdd94852cdd92b20e4d597404d28ec9cc1cd",
+      "006_auth_registration_capture.sql": "2590517b5993b682f598452c5477ce2fe94262ee33f8e0f607e9a2829065e8dc",
+      "007_privacy_hardening.sql": "b2216fdca88a48fa87311af46644ffa2764375f069b479ba094d560a5205a999",
+      "008_database_access_hardening.sql": "5e466924302b0ad465736fa5106a6ff421b940aff9d7069eeec54f498ea93040",
+      "009_template_library.sql": "5f2e10f110f463cd0b2336f9adf2f394a26910e74e9bcc1252c9019ef0af261a",
+      "010_channel_plans.sql": "473b9d3f9dc8196faed0396095e65124631473ca6baefa19c4909de6d123aad3"
+    },
+    "databaseCompatibility": "castiq-schema-v8",
+    "unauthenticatedPrivateApi": 401,
+    "localFixtureLogin": 405,
+    "invalidJwtPrivateApi": 401,
+    "anonymousSessionHasNoFixtureAccounts": true,
+    "ciAdmission": {
+      "repository": "castiqnl/platform",
+      "sha": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a",
+      "configId": "b4f425b39ade43b3ad1b867e1034b1e019e09e5a10f62b51b1ed8076dd6c9c06",
+      "action": "build",
+      "environment": "staging",
+      "ciRunId": 45262829146,
+      "ciRunAttempt": 1,
+      "requestRunId": 45263874016,
+      "requestRunAttempt": 1
+    },
+    "centralConfiguration": {
+      "builtinTemplates": 27,
+      "formats": 4,
+      "partnerLayerProtected": true,
+      "centralReadWriteVerified": true,
+      "planCount": 4,
+      "billingActivated": false
+    },
+    "unitIsolationHashesVerified": true,
+    "managedAppWorkerAndCurrentUnchanged": true,
+    "destructivePrivacyRetentionEnabled": false,
+    "externalOtpAndGoogleHumanSessionVerified": false,
+    "resendApiKeyConfigured": false,
+    "workerProbe": {
+      "activeWithSamePidForAtLeastThreeSeconds": true,
+      "observations": 4,
+      "entrypointThroughTemporarySymlink": true,
+      "queuesBefore": {
+        "jobs": 0,
+        "outbox": 0,
+        "privacy_cases": 0,
+        "resend_keys": 0
+      },
+      "queuesAfter": {
+        "jobs": 0,
+        "outbox": 0,
+        "privacy_cases": 0,
+        "resend_keys": 0
+      },
+      "retentionExecute": false,
+      "privacyDryRunObserved": true,
+      "backgroundErrorsObserved": 0,
+      "sigtermAndCleanup": true
+    },
+    "temporaryUnitStoppedAndConfigRemoved": true
+  },
+  "database": {
+    "migrationCount": 10,
+    "castiqTables": 42,
+    "rlsTables": 42,
+    "templates": 27,
+    "templateVersions": 27,
+    "builtinInitializationAuditRecords": 27,
+    "layouts": 108,
+    "protectedPartnerLayouts": 108,
+    "runtimeRole": "castiq_runtime",
+    "runtimeHasSuperuserOrBypassRls": false,
+    "newTablesAccessibleToAnonOrAuthenticated": false
+  },
+  "rollback": {
+    "oldSha": "f38e8f77963761157315accfb6d96140f0cae9bb",
+    "reviewedSourceSha": "8374f1a91578f196c07bc50328dd1ce7843643ad",
+    "deployedCandidateSha": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a",
+    "sameSourceTreeVerified": true,
+    "success": true,
+    "checks": {
+      "oldV8ApiCreatesAndQueues": true,
+      "additiveMigrationPreservesAllV8Columns": true,
+      "firstEightMigrationChecksumsIdentical": true,
+      "oldHealthAndReadinessOnV10": true,
+      "oldAnonymousPlatformTenantTeamBoundaries": true,
+      "oldWorkerKeepsTimeoutUnconfirmed": true,
+      "newApiWritesPinnedHistoryOnExpandedSchema": true,
+      "oldUnrelatedWritesPreserveNewSnapshotAndPause": true,
+      "oldWorkerPreservesPinnedQueuedPayloadAndTimeout": true,
+      "oldEditsPreserveWorkspacePinnedFields": true,
+      "oldNewRevisionOmitsManagedSnapshots": true,
+      "oldNewQueueOmitsManagedSnapshots": true,
+      "newAppReadsStateAfterOldMutations": true
+    },
+    "limitations": [
+      "Schema expansion is backward compatible for old health, read, tenant checks and ordinary writes, but old code is not behaviorally equivalent.",
+      "Old worker retains existing managed queued payloads and produces unconfirmed sandbox timeouts, without inventing external receipts.",
+      "Old edits retain managed workspace fields but old newly persisted revision/job payloads omit managed plan/template data. Old code has no managed connection revocation checks.",
+      "If emergency rollback is necessary after managed data has been created, stop/pause worker and keep club writes read-only until repaired/redeployed; do not use active old queue/edit flow as a transparent rollback.",
+      "Only synthetic localhost fixtures, not external Supabase login, provider OAuth, staging production data or real publishing."
+    ],
+    "liveRollbackPerformed": false,
+    "fallbackOperation": "Pause the old worker and restrict club writes if new managed template/plan/channel activity has occurred; old code does not enforce all new semantics."
+  },
+  "anonymousBrowser": {
+    "at": "2026-11-23T20:56:47.948Z",
+    "origin": "https://staging.castiq.nl",
+    "expectedSha": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a",
+    "scope": "Anonymous read-only browser smoke; no login, identities, submissions or fixtures",
+    "browser": "Chromium",
+    "checks": [
+      {
+        "viewport": "desktop",
+        "page": "/",
+        "status": 200,
+        "heading": true,
+        "templates": 27,
+        "horizontalOverflow": false,
+        "fictitiousClubRecords": false
+      },
+      {
+        "viewport": "desktop",
+        "page": "/#/platform/dashboard",
+        "protected": true,
+        "supabaseLoginVisible": true,
+        "localFixtureLogin": false,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "desktop",
+        "page": "/algemene-voorwaarden",
+        "status": 200,
+        "exactDownloadHash": true,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "desktop",
+        "page": "/privacyverklaring",
+        "status": 200,
+        "exactDownloadHash": true,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "desktop",
+        "page": "/verwerkersovereenkomst",
+        "status": 200,
+        "exactDownloadHash": true,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "desktop",
+        "page": "/bedrijfsgegevens",
+        "status": 200,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "desktop",
+        "page": "/cookiebeleid",
+        "status": 200,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "desktop",
+        "page": "/subverwerkers",
+        "status": 200,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "desktop",
+        "page": "/account-verwijderen",
+        "status": 200,
+        "horizontalOverflow": false
+      },
+      {
+        "page": "/api/health",
+        "status": 200,
+        "commit": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a",
+        "publicationMode": "sandbox-only"
+      },
+      {
+        "page": "/api/readiness",
+        "status": 200,
+        "commit": "4c39c3a6cf099ff6655b29cee15c67712bb4c14a"
+      },
+      {
+        "page": "/api/workspace",
+        "status": 401,
+        "anonymousDenied": true
+      },
+      {
+        "page": "/api/admin/clubs",
+        "status": 401,
+        "anonymousDenied": true
+      },
+      {
+        "page": "/api/admin/templates",
+        "status": 401,
+        "anonymousDenied": true
+      },
+      {
+        "page": "/api/admin/operations",
+        "status": 401,
+        "anonymousDenied": true
+      },
+      {
+        "page": "/api/admin/plans",
+        "status": 401,
+        "anonymousDenied": true
+      },
+      {
+        "page": "/api/channels",
+        "status": 401,
+        "anonymousDenied": true
+      },
+      {
+        "page": "/api/club/plan",
+        "status": 401,
+        "anonymousDenied": true
+      },
+      {
+        "viewport": "mobile",
+        "page": "/",
+        "status": 200,
+        "heading": true,
+        "templates": 27,
+        "horizontalOverflow": false,
+        "fictitiousClubRecords": false
+      },
+      {
+        "viewport": "mobile",
+        "page": "/#/platform/dashboard",
+        "protected": true,
+        "supabaseLoginVisible": true,
+        "localFixtureLogin": false,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "mobile",
+        "page": "/algemene-voorwaarden",
+        "status": 200,
+        "exactDownloadHash": true,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "mobile",
+        "page": "/privacyverklaring",
+        "status": 200,
+        "exactDownloadHash": true,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "mobile",
+        "page": "/verwerkersovereenkomst",
+        "status": 200,
+        "exactDownloadHash": true,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "mobile",
+        "page": "/bedrijfsgegevens",
+        "status": 200,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "mobile",
+        "page": "/cookiebeleid",
+        "status": 200,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "mobile",
+        "page": "/subverwerkers",
+        "status": 200,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "mobile",
+        "page": "/account-verwijderen",
+        "status": 200,
+        "horizontalOverflow": false
+      }
+    ],
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "blockedMutations": [],
+    "success": true
+  },
+  "remainingAcceptance": [
+    "Human OTP and Google login/consent with authorized staging accounts.",
+    "Authenticated platform/club/team staging acceptance with approved test identities.",
+    "Real provider OAuth requires configured provider applications and authorized test accounts; external publication remains disabled.",
+    "Financial processing remains disabled.",
+    "Destructive privacy retention remains disabled; extend new-table pseudonymization and verify provider retention before enabling."
+  ]
+}
