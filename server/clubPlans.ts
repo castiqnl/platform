@@ -23,8 +23,30 @@ export async function freezeClubPlan(db:Database,clubId:string){
  const name=row?.plan_name||(names.includes(workspace.plan)?workspace.plan:'Gratis');
  return {...quotePlan(policy,name,row?.opted_in===true),choiceVersion:row?.version||0};
 }
-export async function clubPlanOverview(db:Database,actor:Actor){role(actor,'club');const policy=await currentPlanPolicy(db);const snapshot=await freezeClubPlan(db,actor.clubId);const row=(await db.query("SELECT jsonb_array_length(COALESCE(state->'teams','[]'::jsonb)) AS total,(SELECT count(*)::integer FROM jsonb_array_elements(COALESCE(state->'teams','[]'::jsonb)) t WHERE COALESCE((t->>'active')::boolean,false)) AS active FROM castiq.workspaces WHERE club_id=$1",[actor.clubId])).rows[0];return {policy,snapshot,activeTeams:row?.active||0,financialProcessing:'Niet geactiveerd: geen betaalprovider, contract-/btw- of facturatiegegevens bevestigd.'};}
-export async function platformPlanOverview(db:Database,actor:Actor){role(actor,'platform');const policy=await currentPlanPolicy(db);const rows=await db.query("SELECT w.club_id AS id,w.state->'club'->>'name' AS name,COALESCE(c.plan_name,w.state->'club'->>'plan','Gratis') AS plan,COALESCE(c.opted_in,false) AS opted_in,COALESCE(c.version,0) AS choice_version,(SELECT count(*)::integer FROM jsonb_array_elements(COALESCE(w.state->'teams','[]'::jsonb)) t WHERE COALESCE((t->>'active')::boolean,false)) AS active_teams FROM castiq.workspaces w LEFT JOIN castiq.club_plan_choices c ON c.club_id=w.club_id WHERE w.club_id<>'__platform__' ORDER BY w.club_id");return {policy,clubs:rows.rows.map(r=>({id:r.id,name:r.name||r.id,activeTeams:r.active_teams,choiceVersion:r.choice_version,snapshot:quotePlan(policy,names.includes(r.plan)?r.plan:'Gratis',r.opted_in)}))};}
+export async function clubPlanOverview(db:Database,actor:Actor){role(actor,'club');const policy=await currentPlanPolicy(db);const snapshot=await freezeClubPlan(db,actor.clubId);const row=(await db.query("SELECT jsonb_array_length(COALESCE(state->'teams','[]'::jsonb)) AS total,(SELECT count(*)::integer FROM jsonb_array_elements(COALESCE(state->'teams','[]'::jsonb)) t WHERE COALESCE((t->>'active')::boolean,false)) AS active FROM castiq.workspaces WHERE club_id=$1",[actor.clubId])).rows[0];return {policy,snapshot,activeTeams:row?.active||0,financialProcessing:'Online betalen is nog niet beschikbaar. Er wordt niets gefactureerd.'};}
+/** Club status describes actual access, separately from a subscription or payment. */
+export async function platformPlanOverview(db:Database,actor:Actor){
+ role(actor,'platform');
+ const policy=await currentPlanPolicy(db);
+ const rows=await db.query(`WITH eligible AS (
+  SELECT m.club_id,count(*)::integer AS members,bool_or(m.role='club') AS has_manager
+  FROM castiq.memberships m
+  WHERE m.role IN ('club','team') AND m.active AND (m.expires_at IS NULL OR m.expires_at>now())
+   AND NOT EXISTS(SELECT 1 FROM castiq.privacy_accounts a WHERE a.actor_id=m.actor_id AND (a.status<>'active' OR (CASE WHEN a.reliable_activity THEN COALESCE(a.last_conscious_at,a.registration_completed_at) WHEN a.transition_announced_at IS NOT NULL THEN a.transition_start_at ELSE NULL END)+interval '2160 hours'<=now()))
+   AND NOT EXISTS(SELECT 1 FROM castiq.memberships p WHERE p.actor_id=m.actor_id AND p.role='platform' AND p.active AND (p.expires_at IS NULL OR p.expires_at>now()))
+  GROUP BY m.club_id
+ ) SELECT w.club_id AS id,w.state->'club'->>'name' AS name,w.state->'club'->'trial' AS trial,
+  COALESCE(c.plan_name,w.state->'club'->>'plan','Gratis') AS plan,COALESCE(c.opted_in,false) AS opted_in,
+  COALESCE(c.version,0) AS choice_version,COALESCE(e.members,0) AS members,COALESCE(e.has_manager,false) AS has_manager,
+  (SELECT count(*)::integer FROM jsonb_array_elements(COALESCE(w.state->'teams','[]'::jsonb)) t WHERE COALESCE((t->>'active')::boolean,false)) AS active_teams
+ FROM castiq.workspaces w LEFT JOIN castiq.club_plan_choices c ON c.club_id=w.club_id LEFT JOIN eligible e ON e.club_id=w.club_id
+ WHERE w.club_id<>'__platform__' ORDER BY lower(w.state->'club'->>'name'),w.club_id`);
+ return {policy,clubs:rows.rows.map(r=>({
+  id:r.id,name:r.name||r.id,activeTeams:r.active_teams,members:r.members,hasClubManager:r.has_manager,
+  status:r.members>0?'active':'setup',trial:typeof r.trial==='boolean'?r.trial:null,choiceVersion:r.choice_version,
+  snapshot:quotePlan(policy,names.includes(r.plan)?r.plan:'Gratis',r.opted_in),
+ }))};
+}
 export async function saveClubPlan(pool:pg.Pool,actor:Actor,input:any){
  role(actor,'club');if(!names.includes(input?.plan)||typeof input?.optedIn!=='boolean'||!Number.isSafeInteger(input?.expectedVersion)||!Number.isSafeInteger(input?.expectedPolicyVersion))invalid('Kies een bundel en bevestig de partnerdeelname.');
  const db=await pool.connect();try{await db.query('BEGIN');await db.query("SELECT pg_advisory_xact_lock(hashtext('castiq-plan-policy'))");const ws=(await db.query('SELECT state FROM castiq.workspaces WHERE club_id=$1 FOR UPDATE',[actor.clubId])).rows[0];if(!ws)throw new ApiError(404,'Clubomgeving ontbreekt.','not_found');const policy=await currentPlanPolicy(db);const current=(await db.query('SELECT version FROM castiq.club_plan_choices WHERE club_id=$1 FOR UPDATE',[actor.clubId])).rows[0];if(input.expectedVersion!==(current?.version||0)||input.expectedPolicyVersion!==policy.version)throw new ApiError(409,'Bundel of tarieven zijn gewijzigd. Herlaad en bevestig opnieuw.','conflict');const quote=quotePlan(policy,input.plan,input.optedIn);const active=(ws.state.teams||[]).filter((t:any)=>t.active===true).length;if(quote.teamLimit!==null&&active>quote.teamLimit)invalid('Deze bundel heeft minder plekken dan het aantal actieve teams.');await db.query('INSERT INTO castiq.club_plan_choices(club_id,version,plan_name,opted_in,accepted_policy_version,updated_by) VALUES($1,1,$2,$3,$4,$5) ON CONFLICT(club_id) DO UPDATE SET version=castiq.club_plan_choices.version+1,plan_name=$2,opted_in=$3,accepted_policy_version=$4,updated_by=$5,updated_at=now()',[actor.clubId,input.plan,input.optedIn,policy.version,actor.id]);await db.query('INSERT INTO castiq.plan_events(id,club_id,actor_id,action,snapshot) VALUES($1,$2,$3,$4,$5)',[randomUUID(),actor.clubId,actor.id,'club.choice',JSON.stringify(quote)]);await db.query('COMMIT');return clubPlanOverview(pool,actor);}catch(error){await db.query('ROLLBACK');throw error;}finally{db.release();}

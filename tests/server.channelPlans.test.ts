@@ -11,6 +11,7 @@ import {seedFixtures,type Actor} from '../server/fixtures.ts';
 import {createApplication} from '../server/application.ts';
 import {freezeClubPlan,quotePlan,currentPlanPolicy} from '../server/clubPlans.ts';
 import {assertSocialDestination,encryptChannelSecret,decryptChannelSecret,requiredChannelScopes,type SocialOptions} from '../server/socialConnections.ts';
+import {eraseIntegrationActorReferences} from '../server/privacy.ts';
 const connection=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;
 if(!connection)throw new Error('Gebruik de bestaande lokale testdatabaseconfiguratie voor de geïsoleerde kanaal-/pakketproeven.');
 let pool:pg.Pool,admin:pg.Pool,server:Server,base:string,dir:string,database:string,clubCookie:string,otherCookie:string,teamCookie:string,platformCookie:string;
@@ -30,7 +31,7 @@ const social:Omit<SocialOptions,'origin'|'environment'>={encryptionKey:randomByt
  if(url.hostname==='graph.facebook.com'&&url.pathname.endsWith('/oauth/access_token'))return Response.json({access_token:accessToken,expires_in:3600});
  if(url.hostname==='graph.facebook.com'&&url.pathname.endsWith('/permissions'))return Response.json({data:requiredChannelScopes.facebook.map(permission=>({permission,status:'granted'}))});
  if(url.hostname==='graph.facebook.com'&&url.pathname.endsWith('/accounts'))return Response.json({data:[{id:'synthetic-page',name:'Fictieve clubpagina',access_token:accessToken,tasks:['CREATE_CONTENT']},{id:'no-rights',name:'Onbevoegde pagina',access_token:accessToken,tasks:['ANALYZE']}]});
- if(url.hostname==='graph.facebook.com')return Response.json({id:'synthetic-fb-user',name:'Fictieve gebruiker'});
+ if(url.hostname==='graph.facebook.com')return Response.json({id:url.pathname.endsWith('/synthetic-page')?'synthetic-page':'synthetic-fb-user',name:'Fictieve gebruiker'});
  throw new Error('Unexpected mock provider endpoint');
 }};
 async function request(path:string,method='GET',body?:any,cookie=''){const response=await fetch(base+path,{method,headers:{...(cookie?{Cookie:cookie}:{}),...(body!==undefined?{'Content-Type':'application/json'}:{})},body:body===undefined?undefined:JSON.stringify(body),redirect:'manual'});return {status:response.status,headers:response.headers,body:response.status===303?null:await response.json(),cookie:response.headers.get('set-cookie')?.split(';')[0]||''};}
@@ -98,4 +99,17 @@ test('switching club with the same actor cannot apply an earlier club OAuth flow
 test('expired selections erase staged tokens and uncertain revocation stays disabled until retry',async()=>{
  const flow=await start('instagram');await callback(flow,'instagram');assert((await pool.query('SELECT encrypted_candidates FROM castiq.social_oauth_flows WHERE id=$1',[flow.flowId])).rows[0].encrypted_candidates);await pool.query("UPDATE castiq.social_oauth_flows SET expires_at=now()-interval '1 second' WHERE id=$1",[flow.flowId]);assert.equal((await request('/api/channels/flows/'+flow.flowId,'GET',undefined,clubCookie)).body.status,'expired');const erased=(await pool.query('SELECT encrypted_verifier,encrypted_candidates FROM castiq.social_oauth_flows WHERE id=$1',[flow.flowId])).rows[0];assert.equal(erased.encrypted_verifier,null);assert.equal(erased.encrypted_candidates,null);
  providerDenied=true;let r=await request('/api/channels/x','DELETE',{expectedVersion:await providerVersion('x')},clubCookie);assert.equal(r.status,200);assert.equal(r.body.providers.find((p:any)=>p.provider==='x').status,'revocation_pending');await assert.rejects(assertSocialDestination(pool,'cl1','X-post'));assert((await pool.query("SELECT encrypted_tokens FROM castiq.social_connections WHERE club_id='cl1' AND provider='x'")).rows[0].encrypted_tokens);providerDenied=false;r=await request('/api/channels/x','DELETE',{expectedVersion:await providerVersion('x')},clubCookie);assert.equal(r.status,200);assert.equal(r.body.providers.find((p:any)=>p.provider==='x').status,'disconnected');assert.equal((await pool.query("SELECT encrypted_tokens FROM castiq.social_connections WHERE club_id='cl1' AND provider='x'")).rows[0].encrypted_tokens,null);
+});
+test('account erasure during a provider exchange cannot recreate an OAuth flow or audit actor reference',async()=>{
+ const flow=await start('x'),original=social.fetch!,actor='getijde-club',pseudonym='erased:'+createHash('sha256').update('synthetic-erasure-proof').digest('hex');let erased=false;
+ social.fetch=async(url,init)=>{
+  if(!erased&&new URL(String(url)).pathname==='/2/oauth2/token'){
+   erased=true;const db=await pool.connect();try{await db.query('BEGIN');await db.query("SELECT club_id FROM castiq.workspaces WHERE club_id='cl1' FOR UPDATE");await eraseIntegrationActorReferences(db,actor,pseudonym);await db.query('DELETE FROM castiq.memberships WHERE actor_id=$1',[actor]);await db.query('COMMIT');}catch(error){await db.query('ROLLBACK');throw error;}finally{db.release();}
+  }
+  return original(url,init);
+ };
+ // The application captured the options object at construction. Its injected
+ // fetch delegates through this mutable test object via a second local server.
+ const app=createServer(createApplication({pool,uploadDir:dir,authMode:'local',appEnv:'local',origin:'https://staging.example.test',host:'127.0.0.1',social}));await new Promise<void>(resolve=>app.listen(0,'127.0.0.1',resolve));
+ try{const response=await fetch(`http://127.0.0.1:${(app.address() as any).port}/api/channels/oauth/x/callback?state=${flow.state}&code=synthetic-erasure-code`,{headers:{Cookie:flow.cookie},redirect:'manual'});assert.equal(response.status,303);assert.equal(erased,true);const row=(await pool.query('SELECT actor_id,status,encrypted_verifier,encrypted_candidates FROM castiq.social_oauth_flows WHERE id=$1',[flow.flowId])).rows[0];assert.equal(row.actor_id,pseudonym);assert.equal(row.status,'expired');assert.equal(row.encrypted_verifier,null);assert.equal(row.encrypted_candidates,null);assert.equal((await pool.query('SELECT 1 FROM castiq.social_events WHERE actor_id=$1',[actor])).rowCount,0);}finally{social.fetch=original;await new Promise<void>(resolve=>app.close(()=>resolve()));}
 });

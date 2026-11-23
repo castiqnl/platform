@@ -71,3 +71,11 @@
 }
 
 .cp-platform-row-detail { display: block; margin-top: 3px; color: var(--platform-muted,#a7b7bc); font-size: .75rem; }
+.cp-payment-status{margin:0 13px 12px;padding-top:10px;border-top:1px solid var(--cp-line);font-size:.77rem;line-height:1.4;color:var(--cp-muted)}
+.cp-plan-description{max-width:32rem}
+.cp-plan-option .cp-plan-limit{color:#e5c78a}
+.cp-conflict{border:1px solid #aab85a66;background:#aab85a09;border-radius:10px;padding:14px;font-size:.85rem;line-height:1.45}
+.cp-conflict h2{font-size:1rem;margin:0 0 8px}
+.cp-conflict p{margin:8px 0;color:var(--cp-muted)}
+.cp-conflict-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+@media(max-width:430px){.cp-plan-list li{padding-block:10px}.cp-payment-status{margin-inline:9px}.cp-card-heading .text-btn{font-size:.77rem}.cp-conflict-actions .btn{flex:1 1 100%}}

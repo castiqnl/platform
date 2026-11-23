@@ -132,3 +132,11 @@ test('sponsor receipt titles use the frozen public name preference',()=>{
  assert.equal(queued.jobs[0].title,'Speler scoort');assert.equal(queued.jobs[0].payload.title,'Speler scoort');
  const revised=reviseContent(queued,{title:'Nieuw verhaal',sponsorAgreementId:'sa2'});assert.equal(revised.jobs[0].title,'Speler scoort');assert.equal(revised.jobs[0].payload.sponsorAgreementId,'sa1');
 });
+test('official provider receipts survive normalization and uncertain deliveries survive a new revision',()=>{
+ const source:any={id:'provider-content',team:'Eerste',title:'Clubnieuws',caption:'Een eigen bericht',version:1,approvedVersion:1,status:'published',photoUsage:'no_photo',photoConsent:'unknown',namePolicy:'initials',jobs:[{id:'official-job',channel:'Facebook-feed',version:1,status:'published',providerMode:'provider',adapter:'official-provider',receipt:{kind:'provider',provider:'facebook',providerPostId:'123_456',url:'https://www.facebook.com/123/posts/456',confirmedAt:'2026-11-23T10:00:00Z'}}]};
+ const normalized=normalizeContent(source);assert.equal(normalized.status,'published');assert.equal(normalized.jobs[0].receipt.kind,'provider');assert.equal(normalized.jobs[0].receipt.provider,'facebook');
+ assert.throws(()=>processPublication({...normalized,jobs:[{...normalized.jobs[0],status:'processing',receipt:undefined}]},'official-job','confirmed'),/sandbox/);
+ const pending={...source,status:'queued',jobs:[{...source.jobs[0],status:'processing',receipt:undefined,dispatchStartedAt:'2026-11-23T10:00:00Z',payload:{title:'Original'}}]};
+ const edited=reviseContent(pending,{caption:'Nieuwe tekst'});assert.equal(edited.version,2);assert.equal(edited.jobs[0].status,'awaiting_confirmation');assert.deepEqual(edited.jobs[0].payload,{title:'Original'});assert.equal(edited.approvedVersion,undefined);
+ const undispatched=reviseContent({...pending,jobs:[{...pending.jobs[0],status:'queued',dispatchStartedAt:undefined}]},{caption:'Nieuwe tekst'});assert.equal(undispatched.jobs[0].status,'cancelled');
+});

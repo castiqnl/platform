@@ -99,6 +99,7 @@ class ReleaseBoundaryTests(unittest.TestCase):
             'worker_unit_sha256': release.hashlib.sha256(fixture.unit_contents[release.SITE_ID + '-worker.service']).hexdigest()}
         prerequisites = {key: True for key in ['database_migrated_and_compatible', 'encrypted_backup_restore_verified', 'private_access_verified', 'control_plane_isolation_verified']}
         prerequisites.update({'runtime_config_id': runtime_id, 'sha': sha})
+        fixture.prerequisites = prerequisites
         profile = {**PUBLIC, **PRIVATE}
 
         def private_config(path):
@@ -443,6 +444,64 @@ class ReleaseBoundaryTests(unittest.TestCase):
             fixture.run.assert_not_called()
             self.assert_restored(fixture)
 
+    def test_activation_refuses_unreviewed_schema_transition_and_never_starts_incompatible_worker(self):
+        with self.transaction() as fixture:
+            metadata = json.loads((fixture.candidate / 'release.json').read_text())
+            metadata['databaseCompatibility'] = 'castiq-schema-v14'
+            (fixture.candidate / 'release.json').write_text(json.dumps(metadata))
+            with self.assertRaisesRegex(ValueError, 'reviewed transition required'):
+                fixture.activate()
+            self.assertTrue(fixture.state.app)
+            self.assertTrue(fixture.state.worker)
+            self.assertEqual((fixture.site / 'current').resolve(), fixture.old)
+
+    def test_reviewed_schema_transition_failure_quarantines_previous_app_and_worker(self):
+        with self.transaction() as fixture:
+            metadata = json.loads((fixture.candidate / 'release.json').read_text())
+            metadata['databaseCompatibility'] = 'castiq-schema-v14'
+            (fixture.candidate / 'release.json').write_text(json.dumps(metadata))
+            fixture.prerequisites['database_transition'] = {
+                'from_release_id': fixture.old.name, 'from_compatibility': 'castiq-schema-v8',
+                'to_compatibility': 'castiq-schema-v14', 'sha': fixture.sha,
+                'rollback_mode': 'quarantine', 'isolated_candidate_verified': True}
+            fixture.healthy.side_effect = ValueError('new candidate not healthy')
+            with self.assertRaisesRegex(ValueError, 'not healthy'):
+                fixture.activate()
+            self.assertFalse(fixture.state.app)
+            self.assertFalse(fixture.state.worker)
+            self.assertEqual((fixture.site / 'current').resolve(), fixture.old)
+            fixture.healthy.assert_called_once_with(fixture.sha)
+
+    def test_schema_quarantine_attempts_app_stop_even_if_worker_stop_fails(self):
+        with self.transaction() as fixture:
+            metadata = json.loads((fixture.candidate / 'release.json').read_text())
+            metadata['databaseCompatibility'] = 'castiq-schema-v14'
+            (fixture.candidate / 'release.json').write_text(json.dumps(metadata))
+            fixture.prerequisites['database_transition'] = {
+                'from_release_id': fixture.old.name, 'from_compatibility': 'castiq-schema-v8',
+                'to_compatibility': 'castiq-schema-v14', 'sha': fixture.sha,
+                'rollback_mode': 'quarantine', 'isolated_candidate_verified': True}
+            command = fixture.run.side_effect
+            worker_stops = 0
+            def fail_cleanup_worker_stop(parts, **options):
+                nonlocal worker_stops
+                if [str(part) for part in parts] == ['/usr/bin/systemctl', 'stop', release.SITE_ID + '-worker.service']:
+                    worker_stops += 1
+                    if worker_stops == 2:
+                        raise OSError('fixture quarantine worker stop failure')
+                command(parts, **options)
+            fixture.run.side_effect = fail_cleanup_worker_stop
+            fixture.healthy.side_effect = ValueError('new candidate not healthy')
+            with self.assertRaisesRegex(ValueError, 'quarantine incomplete'):
+                fixture.activate()
+            self.assertFalse(fixture.state.app)
+            self.assertEqual((fixture.site / 'current').resolve(), fixture.old)
+            self.assertEqual((fixture.site / 'previous').resolve(), fixture.older)
+            calls = [[str(part) for part in call.args[0]] for call in fixture.run.call_args_list]
+            self.assertIn(['/usr/bin/systemctl', 'stop', release.SITE_ID + '.service'], calls)
+            self.assertNotIn(['/usr/bin/systemctl', 'start', release.SITE_ID + '-worker.service'], calls)
+            fixture.healthy.assert_called_once_with(fixture.sha)
+
     def test_rollback_preserves_the_independent_privacy_ledger(self):
         with self.transaction() as fixture:
             ledger = fixture.site / 'shared/privacy-ledger/deletions.json'
@@ -660,6 +719,14 @@ class ReleaseBoundaryTests(unittest.TestCase):
                 release.runtime_environment({**profile, name: 'not-a-real-random-key'}, metadata)
         with self.assertRaises(ValueError):
             release.runtime_environment({**profile, 'PRIVACY_RETENTION_EXECUTE': 'enabled'}, metadata)
+
+    def test_provider_runtime_requires_distinct_private_keys_and_explicit_mode(self):
+        metadata = {'sha': 'a' * 40, 'configId': release.fingerprint(PUBLIC), 'environment': 'staging', 'siteId': 'castiq-vps08-staging'}
+        profile = {**PUBLIC, **PRIVATE, 'PUBLICATION_MODE': 'provider', 'CHANNEL_TOKEN_ENCRYPTION_KEY': 'd' * 64, 'PUBLICATION_MEDIA_SIGNING_KEY': 'e' * 64}
+        self.assertEqual(release.runtime_environment(profile, metadata)['PUBLICATION_MODE'], 'provider')
+        for patch in [{'CHANNEL_TOKEN_ENCRYPTION_KEY': ''}, {'PUBLICATION_MEDIA_SIGNING_KEY': 'd' * 64}, {'PUBLICATION_MODE': 'live'}]:
+            with self.assertRaises(ValueError):
+                release.runtime_environment({**profile, **patch}, metadata)
 
     def test_native_environment_mapping_is_fixed_and_separate(self):
         for environment, suffix, port in [('staging', 'stg', 4184), ('production', 'prd', 4185)]:

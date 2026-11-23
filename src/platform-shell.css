@@ -100,6 +100,8 @@
   .role-platform .account-settings { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 760px) {
+  .app-shell .app-sidebar:not(.mobile-open) { display: none; visibility: hidden; pointer-events: none; transform: translateX(-110%); }
+  .app-shell .app-sidebar.mobile-open { display: flex; visibility: visible; transform: translateX(0); }
   .app-shell.role-platform { --platform-sidebar-width: min(270px, 85vw); --platform-gutter: 12px; }
   .role-platform.app-shell .app-main { margin-left: 0; }
   .role-platform.app-shell .app-header { height: 48px; }

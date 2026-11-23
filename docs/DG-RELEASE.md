@@ -108,6 +108,12 @@ De huidige stagingrelease is `3cf040cf91e0e15c2fa2f7f52d82a48165f004d9-452712360
 
 De marketing-/juridische pagina’s zijn publiek; alle persoonlijke en clubgegevens en beheerschermen vereisen server-gecontroleerde identiteit/rechten. De huidige kanaaladapter blijft uitsluitend sandbox. Een enqueue, export, timeout of demo-receipt is nooit een echte openbare post.
 
+## Serverafronding en providerpublicatie
+
+De serverafronding introduceert migraties **011–014**, `castiq-schema-v14` en het private runtimeprofiel `provider-selfservice-20261123`. De vier publieke buildvariabelen blijven gelijk. Twee afzonderlijke private sleutels beschermen providercredentials en tijdelijke publicatiebeelden; de nieuwe runtime gebruikt expliciet `PUBLICATION_MODE=provider`. Dit activeert geen ongeconfigureerde provider en zet historische sandboxopdrachten niet om. De centrale CastIQ-appregistratie wordt door platformbeheer ingericht, waarna iedere vereniging zelf toestemming geeft. Zie [AFRONDING-CLUBPLATFORM.md](AFRONDING-CLUBPLATFORM.md).
+
+De releasehelper accepteert deze schemaovergang uitsluitend met kandidaatgebonden, root-beheerd bewijs van een geïsoleerd geverifieerde kandidaat en een expliciete `database_transition` met exact vorig release-ID, beide compatibiliteitslabels, SHA en `rollback_mode=quarantine`. De kandidaatproef controleert ook echte JPEG-rendering van feed en Story onder het appaccount, zonder beelden op te slaan. Als activatie over deze grens mislukt, worden zowel app als worker gestopt; de helper start geen oude worker op het nieuwe schema. Een gewone rollback naar v8 blijft verboden. Bewaar de vorige release en de herstelbare back-up voor gecontroleerd herstel door een beheerder.
+
 ## Rollback en mislukte eerste installatie
 
 Bekijk eerst root-only `pair.json` van huidige en vorige gezonde release. Rollback wisselt app én runtime samen, alleen binnen dezelfde vastgelegde databasecompatibiliteit. Een schemawijziging wordt niet teruggedraaid door een symlinkwissel. Beoordeel afwijkende schema’s apart; restore is een gequarantaineerde procedure met replay van de onafhankelijke wisledger vóór vrijgave.

@@ -43,12 +43,12 @@ test('club acceptance is separate and requires explicit representative authority
  expect(submitted[0].scope).toBe('club');expect(submitted[0].clubId).toBe(actor.clubId);expect(submitted[0].authorizedRepresentative).toBe(true);expect(submitted[0].documents.map((item:any)=>item.kind)).toEqual(['terms','processor']);
  await expect(page.locator('a[href*="demo=1"]')).toHaveCount(0);
  await page.getByRole('button',{name:'Castiq Studio',exact:false}).click();
- await expect(page.getByRole('heading',{name:'Alle 27 standaardstijlen',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Alle 27 beschikbare ontwerpen',exact:true})).toBeVisible();
  await expect(page.locator('.live-studio-tile')).toHaveCount(27);
  await expect(page.locator('.live-studio')).not.toContainText(/SC GETIJDE|FC HAVENLICHT|ROBIN BAKKER|3 – 2/);
  expect(await page.locator('.live-studio image[href*="club-getijde"]')).toHaveCount(0);
  await page.getByRole('button',{name:'Bekijk Carbon',exact:true}).click();
- await expect(page.getByLabel('Standaardstijl',{exact:true})).toHaveValue('Carbon');
+ await expect(page.getByLabel('Ontwerp',{exact:true})).toHaveValue(builtinTemplates.find(template=>template.name==='Carbon').id);
  await page.setViewportSize({width:390,height:844});expect(await page.locator('body').evaluate(body=>body.scrollWidth<=window.innerWidth+1)).toBe(true);await page.screenshot({path:'test-results/evidence/live-studio-mobile.png',fullPage:false,animations:'disabled'});
 });
 

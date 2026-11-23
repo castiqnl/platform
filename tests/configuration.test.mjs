@@ -63,3 +63,10 @@ test('build-only CLI validates without database credentials and never prints con
  for(const result of [success,failure])for(const input of Object.values(staging))if(input!=='server')assert.ok(!(result.stdout+result.stderr).includes(input));
  assert.ok(!failure.stderr.includes('must_never_escape'));
 });
+
+test('provider publication requires explicit mode and distinct private runtime keys',()=>{
+ const provider={...runtime,PUBLICATION_MODE:'provider',CHANNEL_TOKEN_ENCRYPTION_KEY:'d'.repeat(64),PUBLICATION_MEDIA_SIGNING_KEY:'e'.repeat(64)};
+ assert.deepEqual(validateRuntimeConfiguration(provider).errors,[]);
+ for(const patch of [{CHANNEL_TOKEN_ENCRYPTION_KEY:''},{PUBLICATION_MEDIA_SIGNING_KEY:'d'.repeat(64)}])assert.ok(validateRuntimeConfiguration({...provider,...patch}).errors.length);
+ assert.ok(validateRuntimeConfiguration({...runtime,PUBLICATION_MODE:'provider'}).errors.length);
+});

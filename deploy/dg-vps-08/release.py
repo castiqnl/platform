@@ -231,7 +231,7 @@ def build(sha, run_id, payload):
             try:
                 artifact = staging / 'artifact'
                 copy_runtime_artifact(source, artifact)
-                metadata = {'candidateId': candidate_id, 'sha': sha, 'configId': config_id, 'runId': run_id, 'environment': ENVIRONMENT, 'siteId': SITE_ID, 'node': '24.18.0', 'npm': '11.16.0', 'ci': admission, 'publicationMode': 'sandbox-only', 'databaseCompatibility': 'castiq-schema-v8'}
+                metadata = {'candidateId': candidate_id, 'sha': sha, 'configId': config_id, 'runId': run_id, 'environment': ENVIRONMENT, 'siteId': SITE_ID, 'node': '24.18.0', 'npm': '11.16.0', 'ci': admission, 'publicationMode': 'per-club-provider', 'databaseCompatibility': 'castiq-schema-v14'}
                 (staging / 'release.json').write_text(json.dumps(metadata, indent=2) + '\n')
                 app = pwd.getpwnam(APP_USER)
                 for parent, directories, files in os.walk(staging):
@@ -250,15 +250,22 @@ def build(sha, run_id, payload):
 
 def runtime_environment(profile, metadata):
     required = {*PRIVATE, *PUBLIC}
-    require(required.issubset(profile) and set(profile).issubset(required | {'PRIVACY_RETENTION_EXECUTE'}), 'Unexpected runtime names or missing private configuration')
+    optional = {'PRIVACY_RETENTION_EXECUTE', 'PUBLICATION_MODE', 'CHANNEL_TOKEN_ENCRYPTION_KEY', 'PUBLICATION_MEDIA_SIGNING_KEY'}
+    require(required.issubset(profile) and set(profile).issubset(required | optional), 'Unexpected runtime names or missing private configuration')
     require(all(isinstance(v, str) and not any(c in v for c in '\n\r\0') for v in profile.values()), 'Invalid runtime value')
     require(profile['DATABASE_URL'].startswith(('postgres://', 'postgresql://')), 'PostgreSQL URL required')
     for name in ('MAIL_ENCRYPTION_KEY', 'PRIVACY_LEDGER_HMAC_KEY', 'SUPABASE_ACCOUNT_OPERATIONS_KEY'):
         require(re.fullmatch(r'[a-f0-9]{64}', profile[name]) is not None, 'Runtime key must be 32 random bytes encoded as lowercase hex')
     require(profile.get('PRIVACY_RETENTION_EXECUTE', 'false') in ('true', 'false'), 'Invalid privacy execution setting')
+    require(profile.get('PUBLICATION_MODE', 'sandbox') in ('sandbox', 'provider'), 'Invalid publication mode')
+    for name in ('CHANNEL_TOKEN_ENCRYPTION_KEY', 'PUBLICATION_MEDIA_SIGNING_KEY'):
+        if name in profile or profile.get('PUBLICATION_MODE') == 'provider':
+            require(re.fullmatch(r'[a-f0-9]{64}', profile.get(name, '')) is not None, 'Private provider key required')
+    keys = [profile[name] for name in (*PRIVATE[1:], 'CHANNEL_TOKEN_ENCRYPTION_KEY', 'PUBLICATION_MEDIA_SIGNING_KEY') if name in profile]
+    require(len(keys) == len(set(keys)), 'Runtime keys must be distinct')
     require(fingerprint(profile) == metadata['configId'], 'Runtime public configuration differs from candidate')
     require(metadata.get('environment') == ENVIRONMENT and metadata.get('siteId') == SITE_ID, 'Candidate belongs to another environment')
-    return {**profile, 'PRIVACY_RETENTION_EXECUTE': profile.get('PRIVACY_RETENTION_EXECUTE', 'false'), 'APP_ENV': ENVIRONMENT, 'AUTH_MODE': 'supabase', 'HOST': '127.0.0.1', 'PORT': str(PORT), 'UPLOAD_DIR': str(SITE / 'shared/uploads'), 'PRIVACY_LEDGER_DIR': str(SITE / 'shared/privacy-ledger'), 'STATIC_DIR': 'dist', 'PUBLICATION_MODE': 'sandbox', 'RELEASE_SHA': metadata['sha']}
+    return {**profile, 'PRIVACY_RETENTION_EXECUTE': profile.get('PRIVACY_RETENTION_EXECUTE', 'false'), 'APP_ENV': ENVIRONMENT, 'AUTH_MODE': 'supabase', 'HOST': '127.0.0.1', 'PORT': str(PORT), 'UPLOAD_DIR': str(SITE / 'shared/uploads'), 'PRIVACY_LEDGER_DIR': str(SITE / 'shared/privacy-ledger'), 'STATIC_DIR': 'dist', 'PUBLICATION_MODE': profile.get('PUBLICATION_MODE', 'sandbox'), 'RELEASE_SHA': metadata['sha']}
 
 def environment_file(environment):
     # systemd EnvironmentFile double-quote rules; never interpolate through a shell.
@@ -278,9 +285,13 @@ def healthy(sha):
     # The runner is denied access to loopback admin ports. Check from a separate,
     # root-controlled unit; no application code or secrets enter that process.
     import uuid
+    pair = json.loads((SITE / 'current' / 'pair.json').read_text())
+    profile = private_json(CONFIG / 'runtime.d' / (identifier(pair['runtimeConfigId']) + '.json'))
+    mode = profile.get('PUBLICATION_MODE', 'sandbox')
+    require(mode in ('sandbox', 'provider'), 'Invalid configured publication mode')
     run(['/usr/bin/systemd-run', '--quiet', '--wait', '--pipe', '--collect', '--unit=' + SITE_ID + '-health-' + uuid.uuid4().hex,
          '-p', 'NoNewPrivileges=yes', '-p', 'ProtectSystem=strict', '-p', 'ProtectHome=yes', '-p', 'PrivateTmp=yes',
-         '-p', 'LogNamespace=' + SITE_ID, '-p', 'RuntimeMaxSec=90', NODE, TRUSTED / 'healthcheck.mjs', sha, str(PORT)])
+         '-p', 'LogNamespace=' + SITE_ID, '-p', 'RuntimeMaxSec=90', NODE, TRUSTED / 'healthcheck.mjs', sha, str(PORT), mode])
 
 def start_worker():
     """Require a real process to remain running after systemd accepted its start."""
@@ -350,9 +361,14 @@ def activate(sha, run_id, payload, candidate_id, runtime_id):
         current = SITE / 'current'
         previous = current.resolve(strict=True) if current.is_symlink() else None
         require(not current.exists() or current.is_symlink(), 'Current is not a managed link')
+        crossing_boundary = False
         if previous:
             require(previous.parent == SITE / 'releases' and (previous / 'healthy.json').is_file(), 'Previous release not a healthy managed pair')
-            require(json.loads((previous / 'pair.json').read_text()).get('databaseCompatibility') == metadata.get('databaseCompatibility'), 'Database compatibility differs from current pair')
+            prior_compatibility = json.loads((previous / 'pair.json').read_text()).get('databaseCompatibility')
+            crossing_boundary = prior_compatibility != metadata.get('databaseCompatibility')
+            if crossing_boundary:
+                transition = prerequisites.get('database_transition', {})
+                require(transition.get('from_release_id') == previous.name and transition.get('from_compatibility') == prior_compatibility and transition.get('to_compatibility') == metadata.get('databaseCompatibility') and transition.get('sha') == sha and transition.get('rollback_mode') == 'quarantine' and transition.get('isolated_candidate_verified') is True, 'Database compatibility differs from current pair; reviewed transition required')
         old_previous = (SITE / 'previous').resolve(strict=True) if (SITE / 'previous').is_symlink() else None
         require(not (SITE / 'previous').exists() or (SITE / 'previous').is_symlink(), 'Previous is not a managed link')
         if old_previous:
@@ -371,6 +387,24 @@ def activate(sha, run_id, payload, candidate_id, runtime_id):
             if previous:
                 atomic_link('previous', previous)
         except Exception:
+            if crossing_boundary:
+                # Attempt both stops even when systemd rejects one. Never let
+                # cleanup failure fall through to restarting incompatible code.
+                shutdown_errors = []
+                for unit in (SITE_ID + '-worker.service', SITE_ID + '.service'):
+                    try:
+                        run(['/usr/bin/systemctl', 'stop', unit])
+                    except Exception as shutdown_error:
+                        shutdown_errors.append(shutdown_error)
+                if previous:
+                    atomic_link('current', previous)
+                if old_previous:
+                    atomic_link('previous', old_previous)
+                elif (SITE / 'previous').is_symlink():
+                    (SITE / 'previous').unlink()
+                if shutdown_errors:
+                    raise ValueError('Schema transition quarantine incomplete; application or worker stop failed') from shutdown_errors[0]
+                raise
             # A first activation can start (or partially start) its worker before
             # metadata fails. Always stop the attempted pair's worker first.
             run(['/usr/bin/systemctl', 'stop', SITE_ID + '-worker.service'])

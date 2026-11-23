@@ -5,6 +5,8 @@ import { PosterSvg } from '../Poster';
 import { templateCatalog } from '../templateCatalog';
 import { Empty, Modal, PageTitle } from '../ui';
 import { useCastiq } from '../store';
+import {api} from '../serverClient';
+import {fetchPrivateImage} from '../authClient';
 import { mountTemplateStudio } from './studio-view.mjs';
 import { createCentralTemplateStudio } from './centralTemplates';
 import {
@@ -20,11 +22,12 @@ const dateText = (time: string) => new Intl.DateTimeFormat('nl-NL', { day: 'nume
 function renderRepoArtwork(element: HTMLElement, options: { template: ManagedTemplate; layers: CanvasLayer[]; format: StudioRatio; fields: Record<string, string>; club?: { id: string } }) {
   const { template, layers, format, fields, club } = options;
   if (!template.family) return false;
-  element.innerHTML = renderToStaticMarkup(<PosterSvg
+  const markup = renderToStaticMarkup(<PosterSvg
     layers={toPosterLayers(layers, format, previewFields(fields))}
     contentType={repoPostTypes[template.postType]} format={repoFormats[format]} partnerLogo
     family={template.family} primary={previewPrimary(club?.id)} secondary="#ffffff"
   />, { identifierPrefix: `canvas-${++artworkId}-` });
+  element.innerHTML=markup.replace(/href="(\/api\/template-media\/[^"]+)"/g,'href="" data-private-template-media="$1"');
   return new Set(layers.map(layer => layer.id));
 }
 
@@ -40,13 +43,29 @@ function Artwork({ template }: { template: ManagedTemplate }) {
 }
 
 function Editor({ id, onBack, model }: { id: string; onBack: () => void; model: any }) {
-  const host = useRef<HTMLDivElement>(null);
+  const host = useRef<HTMLDivElement>(null),{mode,actor}=useCastiq();
+  const [error,setError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(() => {
-    return mountTemplateStudio(host.current, {
-      model, templateId: id, onBack, backgroundUrl: previewPhoto, renderArtwork: renderRepoArtwork,
+    const controller=new AbortController(),cache=new Map<string,Promise<string>>(),allocated:string[]=[];
+    function render(element:HTMLElement,options:any){
+      const result=renderRepoArtwork(element,options);
+      for(const node of element.querySelectorAll<SVGImageElement>('[data-private-template-media]')){
+        const source=node.getAttribute('data-private-template-media');
+        if(!cache.has(source))cache.set(source,fetchPrivateImage(source,controller.signal,actor?.clubId).then(blob=>{if(controller.signal.aborted)return '';const url=URL.createObjectURL(blob);allocated.push(url);return url;}));
+        void cache.get(source).then(url=>{if(!controller.signal.aborted&&node.isConnected)node.setAttribute('href',url);}).catch(failure=>{if(!controller.signal.aborted)setError(failure.message);});
+      }
+      return result;
+    }
+    const unmount=mountTemplateStudio(host.current, {
+      model, templateId: id, onBack, backgroundUrl: previewPhoto, renderArtwork: render,
+      uploadImage:mode==='server'?async(file:File)=>{
+        if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>8*1024*1024)throw new Error('Kies een JPG, PNG of WebP-afbeelding van maximaal 8 MB.');
+        return api<{url:string}>('/api/admin/template-media',{method:'POST',body:file,headers:{'Content-Type':file.type}});
+      }:undefined,
     });
-  }, [id, onBack, model]);
-  return <div ref={host}/>;
+    return ()=>{controller.abort();allocated.forEach(url=>URL.revokeObjectURL(url));unmount();};
+  }, [id, onBack, model,mode,actor?.id,actor?.clubId,retry]);
+  return <>{error&&<p role="alert" className="local-access-error">{error} <button className="btn btn-secondary" onClick={()=>{setError('');setRetry(value=>value+1);}}>Afbeeldingen opnieuw laden</button></p>}<div ref={host}/></>;
 }
 
 function AudienceSettings({ template, close, onSaved, model, clubOptions }: { template: ManagedTemplate; close: () => void; onSaved: () => void; model: any; clubOptions: {id: string; name: string}[] }) {
