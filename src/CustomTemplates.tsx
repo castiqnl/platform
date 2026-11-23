@@ -9,13 +9,14 @@ import './admin-template.css';
 const dateLabel=(v:string)=>new Date(v).toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'});
 
 export default function CustomTemplates({role,onUse,currentDesign}:{role:'club'|'platform';onUse?:(family:string,name:string,template?:CustomTemplate)=>void;currentDesign?:any}){
- const {state,setState,toast,log}=useCastiq();
+ const {state,setState,toast,log,mode}=useCastiq();
  const platform=role==='platform',clubId=currentClubId(state);
  const [requestOpen,setRequestOpen]=useState(false),[title,setTitle]=useState(''),[brief,setBrief]=useState('');
  const [formOpen,setFormOpen]=useState(false),[assignment,setAssignment]=useState({id:'',requestId:'',clubId:state.clubs[0]?.id||clubId,name:'',baseFamily:templateCatalog[0].name,description:''});
  const [clubFilter,setClubFilter]=useState('all');
  const [useCurrentDesign,setUseCurrentDesign]=useState(!!currentDesign);
  const canUseCurrent=Array.isArray(currentDesign?.layers)&&currentDesign.layers.length>0;
+ if(mode==='server')return <section className="card panel"><h3>Centrale clubtemplates</h3><p>Platformbeheer beheert ontwerpen en verenigingstoewijzing in Template Studio. Beschikbare ontwerpen staan in de bijdragewizard en de clubstijlgids.</p></section>;
  const requests=(state.templateRequests||[]).filter(r=>platform?(clubFilter==='all'||r.clubId===clubFilter):r.clubId===clubId);
  const custom=(state.customTemplates||[]).filter(t=>platform?(clubFilter==='all'||t.clubId===clubFilter):t.clubId===clubId&&t.active);
  const pending=requests.filter(r=>r.status==='Nieuw'||r.status==='In behandeling');

@@ -1,0 +1,40 @@
+import {after,before,test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createServer,type Server} from 'node:http';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {randomUUID} from 'node:crypto';
+import pg from 'pg';
+import {migrate} from '../database/migrate.ts';
+import {seedFixtures} from '../server/fixtures.ts';
+import {createApplication} from '../server/application.ts';
+import {runSandboxTick} from '../server/worker.ts';
+let pool:pg.Pool,admin:pg.Pool,server:Server,base:string,database:string,dir:string,club:string,platform:string;
+async function request(path:string,method='GET',data?:any,session=club){const response=await fetch(base+path,{method,headers:{Cookie:session||'',...(data!==undefined?{'Content-Type':'application/json'}:{})},body:data===undefined?undefined:JSON.stringify(data)});return {status:response.status,body:await response.json(),cookie:response.headers.get('set-cookie')?.split(';')[0]||''};}
+async function command(type:string,data:any){const workspace=await request('/api/workspace');return request('/api/commands','POST',{type,data,expectedVersion:workspace.body.version});}
+before(async()=>{const connection=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;if(!connection)throw Error('Een lokale tijdelijke database is verplicht.');const url=new URL(connection);if(!['localhost','127.0.0.1','[::1]'].includes(url.hostname))throw Error('Alleen localhosttestdata toegestaan.');admin=new pg.Pool({connectionString:connection});database='castiq_snapshots_'+randomUUID().replaceAll('-','');await admin.query(`CREATE DATABASE ${database}`);url.pathname='/'+database;pool=new pg.Pool({connectionString:url.href});await migrate(pool);await seedFixtures(pool);dir=await mkdtemp(join(tmpdir(),'castiq-snapshots-'));server=createServer(createApplication({pool,uploadDir:dir,authMode:'local',appEnv:'local',host:'127.0.0.1'}));await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));base=`http://127.0.0.1:${(server.address() as any).port}`;club=(await request('/api/session','POST',{accountId:'getijde-club'},'')).cookie;platform=(await request('/api/session','POST',{accountId:'platform'},'')).cookie;});
+after(async()=>{if(server)await new Promise<void>(resolve=>server.close(()=>resolve()));if(pool)await pool.end();if(admin){try{if(database)await admin.query(`DROP DATABASE IF EXISTS ${database}`);}finally{await admin.end();}}if(dir)await rm(dir,{recursive:true,force:true});});
+let saved:any;
+test('a new contribution freezes central design and pricing; forged client snapshots cannot remove required branding',async()=>{
+ const quote=(await request('/api/club/plan')).body;assert.equal((await request('/api/club/plan','PUT',{plan:'Gratis',optedIn:false,expectedVersion:quote.snapshot.choiceVersion,expectedPolicyVersion:quote.policy.version})).status,200);
+ const templates=(await request('/api/templates')).body.templates,template=templates.find((t:any)=>t.family==='Penseelkracht');
+ const response=await command('content.save',{item:{id:randomUUID(),team:'Eerste elftal',title:'Synthetische centrale bijdrage',caption:'Eigen veilige tekst.',type:'Clubnieuws',family:template.family,templateId:template.id,templateSnapshot:{version:900,layouts:{}},planSnapshot:{netCents:-1},partnerLogo:false}});assert.equal(response.status,200);saved=response.body.state.content.find((item:any)=>item.title==='Synthetische centrale bijdrage');assert.equal(saved.templateSnapshot.version,1);assert.equal(saved.planSnapshot.plan,'Gratis');assert.equal(saved.planSnapshot.netCents,0);assert.equal(saved.partnerLogo,true);assert.equal(saved.templateSnapshot.layouts['4:5'].at(-1).locked,true);
+});
+test('subsequent plan changes and content edits preserve the frozen quote and exact template in revisions and queued payloads',async()=>{
+ const original=structuredClone(saved);const quote=(await request('/api/club/plan')).body;assert.equal((await request('/api/club/plan','PUT',{plan:'Club',optedIn:false,expectedVersion:quote.snapshot.choiceVersion,expectedPolicyVersion:quote.policy.version})).status,200);
+ let response=await command('content.save',{item:{...saved,title:'Nieuwe tekst met historische voorwaarden',partnerLogo:false,planSnapshot:{plan:'Club'}},expectedRevision:saved.version});assert.equal(response.status,200);saved=response.body.state.content.find((item:any)=>item.id===saved.id);assert.deepEqual(saved.planSnapshot,original.planSnapshot);assert.deepEqual(saved.templateSnapshot,original.templateSnapshot);assert.equal(saved.partnerLogo,true);
+ for(const type of ['content.submit','content.approve']){response=await command(type,{id:saved.id,expectedRevision:saved.version});assert.equal(response.status,200);saved=response.body.state.content.find((item:any)=>item.id===saved.id);}
+ response=await command('publication.queue',{id:saved.id,expectedRevision:saved.version,channel:'Instagram-feed'});assert.equal(response.status,200);saved=response.body.state.content.find((item:any)=>item.id===saved.id);assert.deepEqual(saved.jobs[0].payload.planSnapshot,original.planSnapshot);assert.deepEqual(saved.jobs[0].payload.render.templateSnapshot,original.templateSnapshot);assert.equal(saved.jobs[0].payload.partnerLogo,true);
+ const revision=(await pool.query('SELECT snapshot FROM castiq.revisions WHERE club_id=$1 AND content_id=$2 AND revision=$3',['cl1',saved.id,saved.version])).rows[0].snapshot;assert.equal(revision.render.templateVersion,1);assert.deepEqual(revision.planSnapshot,original.planSnapshot);
+});
+test('a revoked managed destination prevents queue and retry and cancels undispatched sandbox work',async()=>{
+ await pool.query("INSERT INTO castiq.social_connections(club_id,provider,version,account_id,account_name,account_type,destinations,scopes,status,updated_by) VALUES('cl1','instagram',1,'synthetic','Synthetisch','business','[\"Instagram-feed\"]','[]','revoked','getijde-club')");
+ assert.equal((await command('publication.queue',{id:saved.id,expectedRevision:saved.version,channel:'Instagram-feed'})).body.code,'channel_unavailable');let dispatched=false;const outcome=await runSandboxTick(pool,{adapter:{prepare:async()=>{dispatched=true;throw Error('Geen verzending toegestaan');}} as any});assert.equal(outcome.cancelled,true);assert.equal(dispatched,false);
+ const workspace=(await request('/api/workspace')).body;saved=workspace.state.content.find((item:any)=>item.id===saved.id);assert.equal(saved.jobs[0].status,'cancelled');
+ const failed=structuredClone(saved);failed.jobs[0].status='failed';await pool.query('UPDATE castiq.workspaces SET state=jsonb_set(state,\'{content}\',$1) WHERE club_id=\'cl1\'',[JSON.stringify(workspace.state.content.map((item:any)=>item.id===saved.id?failed:item))]);assert.equal((await command('publication.retry',{id:saved.id,jobId:saved.jobs[0].id})).body.code,'channel_unavailable');
+});
+test('revocation after possible dispatch retains uncertainty instead of claiming cancellation',async()=>{
+ const workspace=(await request('/api/workspace')).body;const item=workspace.state.content.find((entry:any)=>entry.id===saved.id),job=item.jobs[0];job.status='processing';job.leaseUntil='2000-01-01T00:00:00Z';job.dispatchStartedAt='2000-01-01T00:00:00Z';job.leaseOwner='interrupted-test-worker';
+ await pool.query('UPDATE castiq.workspaces SET state=$1 WHERE club_id=\'cl1\'',[JSON.stringify(workspace.state)]);await pool.query("UPDATE castiq.jobs SET status='processing',lease_until='2000-01-01T00:00:00Z',state=$1 WHERE id=$2",[JSON.stringify(job),job.id]);let dispatched=false;const outcome=await runSandboxTick(pool,{adapter:{prepare:async()=>{dispatched=true;throw Error('Geen nieuwe verzending toegestaan');}} as any});assert.equal(outcome.status,'awaiting_confirmation');assert.equal(dispatched,false);const updated=(await request('/api/workspace')).body.state.content.find((entry:any)=>entry.id===saved.id).jobs[0];assert.equal(updated.status,'awaiting_confirmation');assert.equal(updated.requestId,job.requestId);assert.equal(updated.receipt,undefined);
+});

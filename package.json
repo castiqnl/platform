@@ -8,7 +8,7 @@
     "check": "tsc --noEmit && tsc -p tsconfig.server.json",
     "dev": "node scripts/dev.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
-    "test": "node --experimental-strip-types --test tests/v1Workflow.test.ts tests/clubTime.test.ts",
+    "test": "node --experimental-strip-types --test tests/v1Workflow.test.ts tests/clubTime.test.ts tests/template.model.test.mjs tests/template.rendering.test.mjs",
     "test:release": "node --test tests/configuration.test.mjs tests/releaseGate.test.mjs tests/staticFiles.test.ts tests/readiness.test.ts && python3 -B -m unittest discover -s tests -p 'release_*test.py'",
     "dev:demo": "CASTIQ_DATA_MODE=demo vite --host 127.0.0.1 --port 4173 --strictPort",
     "local:setup": "node scripts/local-setup.mjs",

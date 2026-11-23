@@ -3,6 +3,7 @@ import {Save,ShieldCheck,Plus} from 'lucide-react';
 import {useCastiq,families} from './store';
 import {PageTitle} from './ui';
 import {PrivateImage} from './PrivateImage';
+import {isFamilyAvailable} from './template-studio/managedTemplates';
 
 const policies=[['initials','Voornaam + initiaal'],['first','Alleen voornaam'],['anonymous','Anoniem'],['full','Volledige naam']];
 const youth=(name:string)=>/^O(?:[6-9]|10)(?:\D|$)/i.test(name);
@@ -13,12 +14,13 @@ const clubForm=(club:any)=>({...club,logo:club.logo||'',namePolicy:club.namePoli
 
 /** All writes use the same server version checks as editorial content. */
 export function ClubSettings(){
- const{state,actor,command,upload,toast}=useCastiq();
+ const{state,actor,command,upload,toast,mode}=useCastiq();
  const[club,setClub]=useState<any>(()=>clubForm(state.club)),[team,setTeam]=useState<any>(newTeam),[player,setPlayer]=useState<any>(()=>newPlayer(state.teams[0]?.name||''));
  const[match,setMatch]=useState<any>({team:state.teams[0]?.name||'',opponent:'',atHome:true,date:'',time:'',location:'',status:'scheduled',homeScore:'',awayScore:''});
  const[busy,setBusy]=useState(false),[error,setError]=useState('');const saving=useRef(false);
+ const availableFamilies=mode==='demo'?families.filter(family=>isFamilyAvailable(family,state.club.id)):families.filter(family=>(state.templates||[]).some(template=>template.family===family));
  const selectedTeam:any=state.teams.find(t=>t.name===match.team);const noScore=youth(match.team)||selectedTeam?.publishScores===false;
- async function run(type:string,data:any,done?:(state:any)=>void){if(saving.current)return;saving.current=true;setBusy(true);setError('');try{const result=await command(type,data);done?.(result.state);toast('Centraal opgeslagen.');}catch(error){setError((error as Error).message);}finally{saving.current=false;setBusy(false);}}
+ async function run(type:string,data:any,done?:(state:any)=>void){if(saving.current)return;saving.current=true;setBusy(true);setError('');try{const result=await command(type,data);done?.(result.state);toast(mode==='demo'?'Opgeslagen op dit apparaat.':'Centraal opgeslagen.');}catch(error){setError((error as Error).message);}finally{saving.current=false;setBusy(false);}}
  async function uploadLogo(file?:File){if(!file||saving.current)return;saving.current=true;setBusy(true);setError('');try{const result=await upload(file,'Clubbreed');setClub((old:any)=>({...old,logo:result.url}));}catch(error){setError((error as Error).message);}finally{saving.current=false;setBusy(false);}}
  if(actor?.role!=='club')return <div className="card" role="alert">Alleen de bevoegde clubredactie kan de clubinrichting beheren.</div>;
  return <div><PageTitle eyebrow="CLUBINRICHTING" title="Jullie club. Jullie afspraken." description="Stel de clubkleuren in, voeg eigen teams en wedstrijden toe en leg naam- en fotovoorkeuren vast."/>
@@ -36,7 +38,7 @@ export function ClubSettings(){
  <form onSubmit={event=>{event.preventDefault();void run('team.save',{team,...(team.id?{expectedRevision:team.version}:{})},()=>setTeam(newTeam()));}}>
  <label className="field">Teamnaam<input required maxLength={80} value={team.name} placeholder="Bijvoorbeeld O14-1" onChange={e=>setTeam({...team,name:e.target.value})}/><small>Een teamnaam die in gebruik is kan niet worden gewijzigd.</small></label>
  <label className="field">Categorie<select value={team.category} onChange={e=>setTeam({...team,category:e.target.value})}><option>Jeugd</option><option>Senioren</option><option>Overig</option></select></label>
- <label className="field">Standaardstijl<select value={team.family} onChange={e=>setTeam({...team,family:e.target.value})}>{families.map(family=><option key={family}>{family}</option>)}</select></label>
+ <label className="field">Standaardstijl<select value={team.family} onChange={e=>setTeam({...team,family:e.target.value})}>{!availableFamilies.includes(team.family)&&<option value={team.family} disabled>{team.family} · Uitgeschakeld</option>}{availableFamilies.map(family=><option key={family}>{family}</option>)}</select></label>
  <label className="field">Naamvoorkeur<select value={team.namePolicy} onChange={e=>setTeam({...team,namePolicy:e.target.value})}>{policyOptions()}</select></label>
  <label className="checkbox-line"><input type="checkbox" checked={team.active} onChange={e=>setTeam({...team,active:e.target.checked})}/>Team actief</label>
  <label className="checkbox-line"><input type="checkbox" disabled={youth(team.name)} checked={!youth(team.name)&&team.publishScores} onChange={e=>setTeam({...team,publishScores:e.target.checked})}/>Uitslagen openbaar gebruiken</label>
