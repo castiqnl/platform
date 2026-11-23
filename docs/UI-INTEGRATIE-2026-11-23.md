@@ -1,6 +1,6 @@
 # Castiq UI integratie en stagingacceptatie
 
-De interface uit het overdrachtspakket is via PR #2 op `main` geïntegreerd en op 23 november 2026 naar **[staging.castiq.nl](https://staging.castiq.nl)** uitgerold. Actieve applicatie-SHA: **`4c39c3a6cf099ff6655b29cee15c67712bb4c14a`**. Cockpit, verenigingenbeheer, Template Studio, kanaalbeheer en pakketkeuze gebruiken centrale servergegevens. Echte socialpublicatie, financiële verwerking en definitieve automatische privacywissing blijven uitgeschakeld. Productie is ongewijzigd.
+De interface uit het overdrachtspakket is via PR #2 op `main` geïntegreerd en op 23 november 2026 naar **[staging.castiq.nl](https://staging.castiq.nl)** uitgerold. Actieve applicatie-SHA na de kanaalwizardcorrectie: **`3cf040cf91e0e15c2fa2f7f52d82a48165f004d9`**. Zie [het herstelverslag](KANAALWIZARDS-2026-11-23.md) en [het aanvullende uitrolbewijs](deploy-evidence/staging-channel-wizards-2026-11-23.json). Cockpit, verenigingenbeheer, Template Studio, kanaalbeheer en pakketkeuze gebruiken centrale servergegevens. Echte socialpublicatie, financiële verwerking en definitieve automatische privacywissing blijven uitgeschakeld. Productie is ongewijzigd.
 
 ## Herkomst en behouden contracten
 
@@ -58,7 +58,7 @@ Benodigde private servernamen zijn `CHANNEL_TOKEN_ENCRYPTION_KEY` en per provide
 
 De bestaande root-owned releasehelper accepteert momenteel uitsluitend de bestaande runtimevariabelen en `PRIVACY_RETENTION_EXECUTE`. Deze bronintegratie verandert dat toelatingscontract niet. Werkelijke providerconfiguratie op de VPS vereist eerst een afzonderlijk gereviewde uitbreiding van die private runtime-toelating en de bijbehorende hosthelper; extra GitHub-buildvariabelen zijn daarvoor niet bedoeld. Zonder die uitbreiding blijven koppelingen zichtbaar ongeconfigureerd en geblokkeerd.
 
-## Uitgevoerde staginguitrol op 23 november 2026
+## Oorspronkelijke integratie-uitrol op 23 november 2026
 
 De eigenaar heeft de staginguitrol afzonderlijk opgedragen. De exacte-SHA-procedure uit [DG-RELEASE.md](DG-RELEASE.md) is gevolgd; het [uitrolbewijs](deploy-evidence/staging-release-2026-11-23.json) bevat de resultaten. Productie behoudt de bestaande niet-geactiveerde kandidaat `f38e8f77963761157315accfb6d96140f0cae9bb` en migraties 001–008.
 

@@ -1,6 +1,6 @@
 # Castiq bouw- en omgevingsstatus
 
-Bijgewerkt: 23 november 2026. **De nieuwe interface draait op [staging.castiq.nl](https://staging.castiq.nl)**, met afzonderlijke actieve API en worker op applicatiecommit **`4c39c3a6cf099ff6655b29cee15c67712bb4c14a`**. PR #2 is op `main` geïntegreerd, exact die SHA heeft de volledige push-CI doorlopen en is uitsluitend naar staging uitgerold. Productie is niet geactiveerd; haar bestaande kandidaat `f38e8f77963761157315accfb6d96140f0cae9bb` en migraties 001–008 zijn behouden. Latere documentatiecommits veranderen de actieve applicatie niet. De gebruiker voert de opgeleverde Supabase Auth-instellingen en accountgebonden acceptatie zelf uit.
+Bijgewerkt: 23 november 2026. **De nieuwe interface draait op [staging.castiq.nl](https://staging.castiq.nl)**, met afzonderlijke actieve API en worker op applicatiecommit **`3cf040cf91e0e15c2fa2f7f52d82a48165f004d9`**. PR #2 en de kanaalwizardcorrectie uit PR #3 zijn op `main` geïntegreerd, exact die SHA heeft de volledige push-CI doorlopen en is uitsluitend naar staging uitgerold. Productie is niet geactiveerd; haar bestaande kandidaat `f38e8f77963761157315accfb6d96140f0cae9bb` en migraties 001–008 zijn behouden. Latere documentatiecommits veranderen de actieve applicatie niet. De gebruiker voert de opgeleverde Supabase Auth-instellingen en accountgebonden acceptatie zelf uit.
 
 | Onderdeel | Feitelijke status |
 | --- | --- |
@@ -33,7 +33,7 @@ Bijgewerkt: 23 november 2026. **De nieuwe interface draait op [staging.castiq.nl
 ## Uitgevoerde controles tijdens integratie
 
 - TypeScript, 34 domein-/model-/renderproeven, 24 Node-releasechecks en 40 Python-boundarychecks geslaagd.
-- 95 server-/privacy-/mail-/pilotchecks en 30 browserproeven geslaagd, met synthetische platform-, club- en teamaccounts op een lokale wegwerpdatabase. De providerproeven gebruiken een expliciete testadapter.
+- 95 server-/privacy-/mail-/pilotchecks en 36 browserproeven geslaagd, met synthetische platform-, club- en teamaccounts op een lokale wegwerpdatabase. De providerproeven gebruiken een expliciete testadapter.
 - Juridische tekst/hash/downloadconsistentie en alle oorspronkelijke assets geslaagd.
 - Werkelijke Supabase-controles: projectscheiding/regio, Auth-providerflags, beperkte databaseverbinding, geen Auth-schema-/rolbeheer voor runtime, geweigerde vervalste Edge-operatiesleutel en alleen service-role RPC-uitvoering.
 
@@ -45,19 +45,25 @@ De stagingkandidaat is onder de beperkte runtime-identiteit met een tijdelijke A
 
 | Controle | Run / resultaat |
 | --- | --- |
-| Volledige push-CI op nieuwe applicatie-SHA | [45262829146](https://github.com/castiqnl/platform/actions/runs/45262829146), success |
-| Nieuwe kandidaat staging op doel-VPS | [45263874016](https://github.com/castiqnl/platform/actions/runs/45263874016), success |
-| Alleen staging geactiveerd | [45264399989](https://github.com/castiqnl/platform/actions/runs/45264399989), success |
+| Volledige push-CI op nieuwe applicatie-SHA | [45270483470](https://github.com/castiqnl/platform/actions/runs/45270483470), success |
+| Nieuwe kandidaat staging op doel-VPS | [45271236093](https://github.com/castiqnl/platform/actions/runs/45271236093), success |
+| Alleen staging geactiveerd | [45271547140](https://github.com/castiqnl/platform/actions/runs/45271547140), success |
 | Bestaande productiekandidaat, ongewijzigd | `f38e8f77963761157315accfb6d96140f0cae9bb`, run [45074436060](https://github.com/castiqnl/platform/actions/runs/45074436060) van 22 november; niet geactiveerd |
 | Runtimeprofiel | `initial-20261122`, eigen root-only profiel per omgeving |
-| Huidige stagingrelease | `4c39c3a6cf099ff6655b29cee15c67712bb4c14a-45263874016-1-initial-20261122` |
-| Vorige gezonde stagingrelease | `f38e8f77963761157315accfb6d96140f0cae9bb-45074332095-1-initial-20261122` |
+| Huidige stagingrelease | `3cf040cf91e0e15c2fa2f7f52d82a48165f004d9-45271236093-1-initial-20261122` |
+| Vorige gezonde stagingrelease | `4c39c3a6cf099ff6655b29cee15c67712bb4c14a-45263874016-1-initial-20261122` |
 
 Het [uitrolbewijs van 23 november](deploy-evidence/staging-release-2026-11-23.json) bevat de exacte SHA, CI-/build-/activatieruns, database- en backupcontroles, kandidaatproef en grensvergelijking vóór/na. Alleen staging is gewijzigd. De kandidaten staan onder `/srv/sites/castiq-vps08-<omgeving>/candidates/`; de [kandidaatproeven van 22 november](deploy-evidence/candidate-probes-final-2026-11-22.json) blijven historisch bewijs voor de eerdere release en productiekandidaat. Er zijn geen e-mails of socialposts verzonden.
 
 De bestaande HTTPS-route en proxyconfiguratie zijn tijdens deze uitrol behouden. De eerste route-inrichting staat in het [uitrolbewijs van 22 november](deploy-evidence/staging-release-2026-11-22.json). Productieservices blijven inactive/disabled zonder current-link; Fabelpad-services, hun current-links, Caddy en proxyhashes zijn voor/na gelijk.
 
-De vorige volledig gezonde app-/runtimecombinatie is nu via `previous` bewaard. De oude app is op een geïsoleerd uitgebreid schema met 13 compatibiliteitscontroles getest. Die compatibiliteit is structureel: oude code bewaart niet alle nieuwe managed snapshots in nieuw aangemaakte revisies of wachtrijtaken en kent de nieuwe intrekkingscontrole niet. Bij noodterugkeer na nieuwe managed activiteit moeten de worker en clubschrijfacties worden gepauzeerd/beperkt totdat de juiste code hersteld is. Er is geen live rollback als test uitgevoerd. De historische API-only release `7cdb874…` blijft geen gezond rollbackdoel. Zie [DG-RELEASE.md](DG-RELEASE.md).
+De vorige volledig gezonde combinatie `4c39c3a…` is nu via `previous` bewaard. Alle 148 gecontroleerde runtimebronbestanden en dependencybestanden zijn identiek; alleen de twee expliciete browserinterfacebestanden verschillen. De hierna beschreven beperking geldt voor een verdere historische terugkeer naar `f38e8f7…`, waarvoor 13 geïsoleerde compatibiliteitscontroles bestaan. Die compatibiliteit is structureel: oude code bewaart niet alle nieuwe managed snapshots in nieuw aangemaakte revisies of wachtrijtaken en kent de nieuwe intrekkingscontrole niet. Bij noodterugkeer na nieuwe managed activiteit moeten de worker en clubschrijfacties worden gepauzeerd/beperkt totdat de juiste code hersteld is. Er is geen live rollback als test uitgevoerd. De historische API-only release `7cdb874…` blijft geen gezond rollbackdoel. Zie [DG-RELEASE.md](DG-RELEASE.md).
+
+## Kanaalwizardcorrectie op staging
+
+De kanaalinterface is hersteld met een compacte directory en vier stappen voor Instagram, Facebook en X. Alle tien kanaal-/pakketbrowsertests en de volledige push-CI met 36 browserproeven slagen. De verse backup `backup-afb1beac-7641-4e72-9ece-af1be40fde09` omvat 41 applicatietabellen en 127 rijen; geïsoleerd herstel en alle inhoudchecksums zijn gecontroleerd. De beperkte operatiesleuteltabel blijft volgens het bestaande contract uitgesloten.
+
+Het [uitrolbewijs voor de kanaalwizards](deploy-evidence/staging-channel-wizards-2026-11-23.json) bevestigt publieke JS/CSS-hashes gelijk aan het geïnstalleerde artifact, anonieme desktop-/mobiele controle, gezonde API en worker en ongewijzigde productie-/Fabelpad-/proxygrenzen. Ingelogde wizardbediening is lokaal met synthetische accounts getest; echte providertoestemming blijft afhankelijk van activatie van de provideraansluiting. Zie [de herstelbeschrijving](KANAALWIZARDS-2026-11-23.md).
 
 ## Handmatige vervolgstappen
 
