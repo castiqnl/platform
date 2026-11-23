@@ -1,4 +1,5 @@
 import {authorizationHeaders} from './authClient';
+import {platformFixtureApi} from './platform-fixtures';
 import type {AppState,Role} from './store';
 export type Actor={id:string;name:string;role:Role;clubId:string;team?:string};
 export type LocalAccount=Actor&{clubName?:string};
@@ -12,6 +13,7 @@ let selectedClubId:string|null=null;
 /** The API rechecks this selection against the authenticated user's memberships. */
 export function selectClubHeader(clubId:string|null){selectedClubId=clubId;}
 export async function api<T>(path:string,options:RequestInit={}):Promise<T>{
+ if(dataMode==='demo')return platformFixtureApi<T>(path,options);
  const requestClubId=selectedClubId;
  let response:Response;try{response=await fetch(path,{...options,credentials:'same-origin',headers:{...await authorizationHeaders(),...(requestClubId?{'x-castiq-club-id':requestClubId}:{}),...(options.body instanceof Blob?{}:{'Content-Type':'application/json'}),...options.headers}});}catch{throw new ServerError('Geen verbinding met de clubomgeving. Je invoer blijft beschikbaar. Controleer de verbinding en probeer opnieuw.','offline',0);}
  let body:any;try{body=await response.json();}catch{throw new ServerError('De server gaf geen bruikbaar antwoord. Er is niets als bewaard bevestigd.','invalid_response',response.status);}

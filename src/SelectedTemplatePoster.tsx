@@ -1,4 +1,7 @@
 import React from 'react';
+import {PosterTextShadow,posterTextPaint} from './posterTextEffects';
+import {CastiqPartnerMark} from './CastiqPartnerMark';
+import {CASTIQ_PARTNER_LAYER_ID} from './template-studio/studio-model.mjs';
 import type {Layer,PosterFormat} from './Poster';
 import {getTemplate,templateCatalog,type TemplateDefinition} from './templateCatalog';
 import {measureTextEm} from './posterTypography';
@@ -60,7 +63,7 @@ export function selectedDefaultLayers(type='Einduitslag',format:PosterFormat='po
  return layers;
 }
 
-export type SelectedTemplatePosterProps={layers:Layer[];format?:PosterFormat;primary?:string;secondary?:string;family?:string;data?:Record<string,string>;selectedId?:string;onLayerPointerDown?:(e:React.PointerEvent,id:string)=>void;safe?:boolean;motion?:boolean;contentType?:string};
+export type SelectedTemplatePosterProps={layers:Layer[];format?:PosterFormat;primary?:string;secondary?:string;family?:string;data?:Record<string,string>;selectedId?:string;onLayerPointerDown?:(e:React.PointerEvent,id:string)=>void;safe?:boolean;motion?:boolean;contentType?:string;partnerLogo?:boolean};
 function fitText(text:string,size:number,maxWidth:number,font:string,weight:number,wrap:boolean,tracking=0){
  const lines:string[]=[];
  for(const paragraph of String(text).split('\n')){let line='';for(const word of paragraph.split(/\s+/)){const test=line?line+' '+word:word;if(wrap&&line&&measureTextEm(test,font,weight)*size>maxWidth&&lines.length===0){lines.push(line);line=word;}else line=test;}if(line)lines.push(line);}
@@ -70,30 +73,37 @@ function fitText(text:string,size:number,maxWidth:number,font:string,weight:numb
  return {lines:limited,size:Math.max(1,n),tracking,widths:limited.map(line=>Math.max(1,Math.min(maxWidth,measureTextEm(line,font,weight)*n+Math.max(0,line.length-1)*tracking)))};
 }
 
-export function SelectedTemplatePoster({layers,format='portrait',primary='#1464f4',secondary='#ffffff',family='Penseelkracht',data,selectedId,onLayerPointerDown,safe=false,motion=false,contentType}:SelectedTemplatePosterProps){
+export function SelectedTemplatePoster({layers,format='portrait',primary='#1464f4',secondary='#ffffff',family='Penseelkracht',data,selectedId,onLayerPointerDown,safe=false,motion=false,contentType,partnerLogo=false}:SelectedTemplatePosterProps){
  const t=getTemplate(family)||templateCatalog[0],H=1000*(formatRatios[format]||1.25),wide=format==='wide',id=React.useId().replace(/[^a-zA-Z0-9_-]/g,''),u=(name:string)=>`url(#${name}${id})`;
  const atlas=useTemplateAtlas(t.atlas,primary,secondary);
  const type=contentType||'Einduitslag',structured=structuredTypes.includes(type),ink=textInk(t,primary);
  const base=t.light?'#f5f2e9':t.tone==='wood'?'#25170f':t.tone==='primary'?primary:'#080e17';
  const col=t.cell%3,row=Math.floor(t.cell/3),frameView=`${col*1000+9} ${row*1250+9} 982 1232`;
  const resolved=(l:Layer)=>l.binding&&data?.[l.binding]!==undefined?String(data[l.binding]):l.text;
+ // The original leading photo stays beneath the fixed effect artwork. Layers
+ // explicitly raised above other content keep their actual painter order.
+ const firstContent=layers.findIndex(layer=>layer.kind!=='photo'&&layer.id!==CASTIQ_PARTNER_LAYER_ID);
+ const photoPrefix=firstContent<0?layers.length:firstContent;
  function selection(l:Layer,x:number,y:number,w:number,h:number){return l.id===selectedId?<rect x={x-5} y={y-5} width={w+10} height={h+10} fill="none" stroke="#c8ff24" strokeWidth="2" strokeDasharray="8 5"/>:null;}
  function renderLayer(l:Layer){
+  if(l.id===CASTIQ_PARTNER_LAYER_ID)return null;
   const x=l.x*10,y=l.y*H/100,text=resolved(l),weight=l.weight??(['label','score'].includes(l.id)?900:600),align=l.align||'middle';
   const common={className:`poster-layer ${l.id===selectedId?'poster-selected':''}`,'data-layer-id':l.id,onPointerDown:(e:React.PointerEvent)=>onLayerPointerDown?.(e,l.id),style:{cursor:onLayerPointerDown?(l.locked?'pointer':'move'):undefined}};
   if(l.kind==='photo'){
    const w=l.width*10,h=H*(l.height??71)/100,px=x-w/2,py=y-h/2,cutout=text.includes('cutout');
    return <g key={l.id} {...common} data-photo-layer="true" opacity={l.opacity??1} transform={l.rotate?`rotate(${l.rotate} ${x} ${y})`:undefined}>
-    <image href={text} x={px} y={py} width={w} height={h} preserveAspectRatio={cutout?'xMidYMax meet':'xMidYMin slice'} mask={u('photoFade')}/>
+    <image href={text} x={px} y={py} width={w} height={h} preserveAspectRatio={l.fit==='contain'?'xMidYMid meet':cutout?'xMidYMax meet':'xMidYMin slice'} mask={u('photoFade')}/>
     {selection(l,px,py,w,h)}
    </g>;
   }
   if(l.kind==='crest')return <g key={l.id} {...common} opacity={l.opacity??1}><circle cx={x} cy={y} r={l.size*.57} fill="#071521" opacity=".72"/><image href={text} x={x-l.size/2} y={y-l.size/2} width={l.size} height={l.size} preserveAspectRatio="xMidYMid meet"/>{selection(l,x-l.size/2,y-l.size/2,l.size,l.size)}</g>;
-  if(l.kind==='rule')return <g key={l.id} {...common} opacity={l.opacity??1}><rect x={align==='start'?x:align==='end'?x-l.width*10:x-l.width*5} y={y} width={l.width*10} height={l.size} rx={l.size/2} fill={l.color}/>{selection(l,x-l.width*5,y,l.width*10,l.size)}</g>;
+  if(l.kind==='rule'){const left=align==='start'?x:align==='end'?x-l.width*10:x-l.width*5;return <g key={l.id} {...common} opacity={l.opacity??1} transform={l.rotate?`rotate(${l.rotate} ${x} ${y})`:undefined}>{l.shape==='circle'?<ellipse cx={left+l.width*5} cy={y+l.size/2} rx={l.width*5} ry={l.size/2} fill={l.color}/>:<rect x={left} y={y} width={l.width*10} height={l.size} rx={l.radius??l.size/2} fill={l.color}/>} {selection(l,left,y,l.width*10,l.size)}</g>;}
   const maxWidth=Math.max(10,Math.min(l.width*10,align==='start'?975-x:align==='end'?x-25:2*Math.min(x-25,975-x))),font=l.font||(['label','score'].includes(l.id)?fonts[t.font]:fonts.sans),main=['label','score','club'].includes(l.id),m=fitText(text,l.size,maxWidth,font,weight,main&&!/^[\d\s–—-]+$/.test(text),l.tracking??(l.kind==='sponsor'?1.7:0)),gap=m.size*1.06,baseline=y-(m.lines.length-1)*gap;
   const color=l.color||ink,header=l.id==='club'||l.id==='competition';
+  const shadowId='textshadow'+id+layers.indexOf(l);
   return <g key={l.id} {...common} opacity={l.opacity??1} transform={l.rotate?`rotate(${l.rotate} ${x} ${y})`:undefined}>
-   <text x={x} y={baseline} fontFamily={font} fontSize={m.size} fontWeight={weight} letterSpacing={m.tracking} textAnchor={align} fill={l.outline?'none':color} stroke={l.outline?color:header?'#03111d':'none'} strokeOpacity={l.outline?1:.8} strokeWidth={l.outline?2:header?2.5:0} paintOrder="stroke fill">{m.lines.map((line,i)=><tspan key={i} x={x} dy={i?gap:0} textLength={m.widths[i]} lengthAdjust="spacingAndGlyphs">{line}</tspan>)}</text>
+   <PosterTextShadow id={shadowId} layer={l}/>
+   <text x={x} y={baseline} fontFamily={font} fontSize={m.size} fontWeight={weight} letterSpacing={m.tracking} textAnchor={align} {...posterTextPaint(l,color,header?{color:'#03111d',width:2.5,opacity:.8}:undefined)} filter={l.shadowEnabled?`url(#${shadowId})`:undefined}>{m.lines.map((line,i)=><tspan key={i} x={x} dy={i?gap:0} textLength={m.widths[i]} lengthAdjust="spacingAndGlyphs">{line}</tspan>)}</text>
    {selection(l,align==='start'?x:align==='end'?x-maxWidth:x-maxWidth/2,baseline-m.size*.84,maxWidth,m.size+gap*(m.lines.length-1))}
   </g>;
  }
@@ -108,12 +118,13 @@ export function SelectedTemplatePoster({layers,format='portrait',primary='#1464f
   </defs>
   <g clipPath={u('canvas')}>
    <g data-layer-group="onderlaag" aria-hidden="true"><rect width="1000" height={H} fill={base}/><path d={`M0 0H1000V${H*.4}L0 ${H*.68}Z`} fill={u('baseGlow')} opacity={t.light?.23:.36}/><path d={`M-160 0L400 ${H}H540L-20 0Z`} fill={secondary} opacity=".1"/></g>
-   <g data-layer-group="gebruikersfoto">{layers.filter(l=>l.visible&&l.kind==='photo').map(renderLayer)}</g>
+   <g data-layer-group="gebruikersfoto">{layers.slice(0,photoPrefix).filter(l=>l.visible&&l.kind==='photo').map(renderLayer)}</g>
    <g data-layer-group="effectoverlay" aria-hidden="true" pointerEvents="none"><svg x="0" y="0" width="1000" height={H} viewBox={frameView} preserveAspectRatio="none" overflow="hidden"><image href={atlas} width="3000" height="3750" preserveAspectRatio="none"/></svg></g>
    {structured&&widget}
-   <g data-layer-group="automatische-inhoud">{layers.filter(l=>l.visible&&l.kind!=='photo').map(renderLayer)}</g>
+   <g data-layer-group="automatische-inhoud">{layers.slice(photoPrefix).filter(l=>l.visible).map(renderLayer)}</g>
    {['Gele kaart','Rode kaart'].includes(type)&&<rect data-content-layout="disciplinary-card" x="816" y={H*.19} width="77" height={wide?83:117} rx="6" fill={type==='Rode kaart'?'#e93f46':'#f5d747'} transform={`rotate(8 850 ${H*.24})`}/>}
    {safe&&<g className="poster-safe-area" pointerEvents="none"><rect x="55" y={H*.06} width="890" height={H*.88} fill="none" stroke="#c8ff24" strokeWidth="2" strokeDasharray="8 8"/><text x="65" y={H*.06+18} fill="#c8ff24" fontSize="12" fontFamily={fonts.sans}>VEILIGE ZONE</text></g>}
+   {partnerLogo&&<CastiqPartnerMark format={format}/>}
   </g>
  </svg>;
 }
