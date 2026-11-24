@@ -328,7 +328,7 @@ type ServerChannel = {
 };
 type ServerChannelList = {publicationMode: string; providers: ServerChannel[]};
 type OAuthCandidate = {id: string; name: string; type: string; destinations: string[]; avatarUrl?: string | null; selectable?: boolean; blockedReason?: string};
-type OAuthFlow = {flowId: string; provider: string; status: string; errorCode?: string; candidates: OAuthCandidate[]};
+type OAuthFlow = {flowId: string; provider: string; status: string; errorCode?: string; notice?: string; candidates: OAuthCandidate[]};
 const channelStatus: Record<string, string> = {
   connected: 'Gekoppeld', disconnected: 'Niet gekoppeld', expired: 'Toegang verlopen',
   revoked: 'Toegang ingetrokken', verification_failed: 'Controle nodig', revocation_pending: 'Ontkoppelen wordt afgerond',
@@ -372,6 +372,8 @@ const accountTypeLabel: Record<string, string> = {business: 'Bedrijf', creator: 
 function flowMessage(flow: OAuthFlow) {
   if (flow.status === 'denied') return 'Je hebt geen toestemming gegeven. Je bestaande koppeling is behouden. Je kunt het opnieuw proberen.';
   if (flow.status === 'expired') return 'De tijd om te koppelen is verstreken. Start de toestemming opnieuw; je bestaande koppeling is behouden.';
+  if (flow.errorCode === 'callback_mismatch') return 'De terugkeer past niet bij het stagingproject of het gekozen kanaal. Start de koppeling opnieuw. Laat platformbeheer de Post for Me-projectinstellingen controleren als dit opnieuw gebeurt. Je bestaande koppeling is behouden.';
+  if (flow.errorCode === 'no_owned_accounts') return 'Er is geen account gevonden dat betrouwbaar bij deze vereniging hoort. Start opnieuw en kies alleen de bedoelde clubpagina of het professionele clubaccount. Je bestaande koppeling is behouden.';
   if (flow.errorCode === 'no_eligible_accounts') return 'Er is geen geschikt clubaccount gevonden. Controleer je account en toegangsrechten en probeer opnieuw.';
   if (flow.errorCode === 'missing_permissions') return 'Niet alle benodigde rechten zijn gegeven. Probeer opnieuw en controleer de gevraagde toegang.';
   if (flow.errorCode === 'unsupported_account_type') return 'Dit account wordt niet ondersteund. Gebruik een professioneel clubaccount.';
@@ -600,11 +602,12 @@ function ServerSocialConnections({onNavigate}: {onNavigate?: (page: string) => v
                 <p className="social-safe-note"><LockKeyhole size={16} aria-hidden="true"/> Je wachtwoord vul je alleen bij {wizard.name} in. Castiq vraagt hier niet om je wachtwoord.</p></>}
               {!currentChannel.configured && <div className="social-setup-notice" role="status"><CircleAlert size={20} aria-hidden="true"/><div><strong>Koppelen is nog niet beschikbaar</strong><p>{quickstart ? currentChannel.configurationMessage || 'Platformbeheer moet de Post for Me-stagingaansluiting eerst instellen, testen en inschakelen. Daarna koppel je hier jullie eigen clubaccount.' : 'De Castiq-app voor dit kanaal moet eerst door platformbeheer worden vrijgegeven. Daarna koppel je hier zelf het account van jullie vereniging; je hoeft geen eigen ontwikkelaarsapp te registreren.'}</p></div></div>}
               {waiting && <div className="social-waiting" role="status"><ExternalLink size={23}/><strong>Rond de toestemming af bij {wizard.name}</strong><p>Ga naar het geopende venster. Kom daarna hier terug; de wizard gaat automatisch verder.</p><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(checkFlow)}><RefreshCw size={15}/> Status controleren</button>{quickstart && <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(async () => {await api('/api/channels/post-for-me/cancel', {method: 'POST', body: JSON.stringify({flowId: activeFlow.flowId})}); setFlow(null); setSelection(''); rememberFlow(storageKey, null); setStep(1); await refresh();})}>Koppelpoging annuleren</button>}</div>}
-              {failed && <div className="social-setup-notice" role="alert"><CircleAlert size={20}/><div><strong>{activeFlow.status === 'denied' ? 'Geen toestemming gegeven' : activeFlow.status === 'expired' ? 'Koppelsessie verlopen' : 'Koppelen niet gelukt'}</strong><p>{flowMessage(activeFlow)}</p></div></div>}
+              {failed && <div className="social-setup-notice" role="alert"><CircleAlert size={20}/><div><strong>{activeFlow.status === 'denied' ? 'Geen toestemming gegeven' : activeFlow.status === 'expired' ? 'Koppelsessie verlopen' : 'Koppelen niet gelukt'}</strong><p>{flowMessage(activeFlow)}</p>{activeFlow.notice && <p>{activeFlow.notice}</p>}</div></div>}
               {activeFlow?.status === 'select' && <p className="social-safe-note"><Check size={16}/> Toestemming ontvangen. Ga verder om het juiste clubaccount te kiezen.</p>}
             </>}
             {step === 2 && <>
               <p>{wizard.name === 'Facebook' ? 'Welke pagina hoort bij je vereniging?' : 'Welk account hoort bij je vereniging?'} Je bestaande koppeling blijft behouden totdat je bevestigt.</p>
+              {activeFlow?.notice && <p className="social-safe-note" role="status"><CircleAlert size={16} aria-hidden="true"/>{activeFlow.notice}</p>}
               <fieldset className="social-options social-accounts"><legend>{wizard.name === 'Facebook' ? 'Beschikbare pagina’s' : 'Beschikbare accounts'}</legend>
                 {candidates.map(candidate => <label key={candidate.id} className="social-account-option"><input type="radio" name={`${groupId}-account`} value={candidate.id} checked={selection === candidate.id} disabled={candidate.selectable === false} onChange={() => setSelection(candidate.id)}/>{candidate.avatarUrl && <img className="social-account-avatar" src={candidate.avatarUrl} alt="" referrerPolicy="no-referrer" onError={event => {event.currentTarget.hidden = true;}}/>}<span><strong>{candidate.name}</strong><small>{accountTypeLabel[candidate.type] || 'Clubaccount'} · {candidate.destinations.join(' · ')}</small>{candidate.selectable === false && <small role="status">{candidate.blockedReason || 'Dit account kan niet betrouwbaar aan deze vereniging worden gekoppeld.'}</small>}</span></label>)}
               </fieldset>
