@@ -3,7 +3,7 @@ import type pg from 'pg';
 import type {Actor} from './fixtures.ts';
 import {ApiError} from './workflow.ts';
 export type Provider='instagram'|'facebook'|'x';
-export type SocialOptions={origin:string;environment:string;publicationMode?:'sandbox'|'provider';publicationEnabled?:boolean;configurationVersion?:number;configurationClubId?:string;resolveProvider?:(clubId:string,provider:Provider)=>Promise<SocialOptions>;encryptionKey?:string;providers?:Partial<Record<Provider,{clientId:string;clientSecret:string;approvedScopes:string[];apiVersion?:string}>>;fetch?:typeof fetch;now?:()=>Date};
+export type SocialOptions={origin:string;environment:string;publicationMode?:'sandbox'|'provider';publicationEnabled?:boolean;configurationVersion?:number;configurationClubId?:string;resolveProvider?:(clubId:string,provider:Provider)=>Promise<SocialOptions>;postForMePrepare?:(db:Database,clubId:string,channel:string)=>Promise<any>;encryptionKey?:string;providers?:Partial<Record<Provider,{clientId:string;clientSecret:string;approvedScopes:string[];apiVersion?:string}>>;fetch?:typeof fetch;now?:()=>Date};
 type Database=Pick<pg.Pool,'query'>|Pick<pg.PoolClient,'query'>;
 type Candidate={id:string;name:string;type:string;destinations:string[];tokens:{accessToken:string;refreshToken?:string;revokeToken?:string;ownerId?:string};scopes:string[];expiresAt:string|null};
 export type ChannelInput={method:string;path:string;body?:any;query?:URLSearchParams;cookie?:string};
@@ -72,7 +72,7 @@ export async function receiveSocialCallback(pool:pg.Pool,provider:Provider,query
 export async function socialFlowStatus(db:Database,actor:Actor,id:string){club(actor);await expireSocialFlows(db,{},actor.clubId);const row=(await db.query('SELECT id,provider,status,error_code,candidates,expires_at FROM castiq.social_oauth_flows WHERE id=$1 AND actor_id=$2 AND club_id=$3',[id,actor.id,actor.clubId])).rows[0];if(!row)throw new ApiError(404,'Koppelsessie niet gevonden voor deze vereniging.','not_found');return {flowId:row.id,provider:row.provider,status:['pending','select'].includes(row.status)&&Date.parse(row.expires_at)<=Date.now()?'expired':row.status,errorCode:row.error_code,candidates:row.candidates};}
 /** Synchronizes derived destination access and cancels only undispatched work.
  * Processing/uncertain requests retain their immutable request and history. */
-export async function synchronizeSocialConnection(db:pg.PoolClient,clubId:string,provider:Provider,connection:any){
+export async function synchronizeSocialConnection(db:Database,clubId:string,provider:Provider,connection:any){
  const row=(await db.query('SELECT state,version FROM castiq.workspaces WHERE club_id=$1 FOR UPDATE',[clubId])).rows[0];if(!row)return;const state=row.state,available=connection?.status==='connected';const name=labels[provider];const derived={name,handle:connection?.account_name||'',connected:available,accountType:connection?.account_type,destinations:available?connection.destinations:[],checkedAt:connection?.checked_at||undefined,providerMode:'verified-connection-only'};state.connections=[...(state.connections||[]).filter((c:any)=>c.name!==name),derived];
  if(!available)for(const item of state.content||[])for(const job of item.jobs||[])if(job.channel?.toLowerCase().startsWith(provider)&&['draft','review','scheduled','queued','paused'].includes(job.status)){job.status='cancelled';job.error='Kanaal ontkoppeld of niet meer geverifieerd; maak na controle een nieuwe opdracht.';await db.query("UPDATE castiq.jobs SET status='cancelled',state=$2,updated_at=now() WHERE id=$1 AND club_id=$3 AND status NOT IN ('processing','published','awaiting_confirmation')",[job.id,JSON.stringify(job),clubId]);}
  await db.query('UPDATE castiq.workspaces SET state=$1,version=$2,updated_at=now() WHERE club_id=$3',[JSON.stringify(state),Number(row.version)+1,clubId]);
@@ -124,6 +124,7 @@ export async function resolveSocialOptions(options:SocialOptions,clubId:string,p
 }
 export async function prepareProviderJob(db:Database,clubId:string,channel:string,options:SocialOptions){
  const provider=providers.find(provider=>channel.toLowerCase().startsWith(provider));if(!provider)throw new ApiError(400,'Kies een geldige kanaalbestemming.','channel_invalid');
+ if(options.postForMePrepare&&(provider==='facebook'||provider==='instagram'))return options.postForMePrepare(db,clubId,channel);
  const resolved=await resolveSocialOptions(options,clubId,provider);socialConfiguration(provider,resolved);
  if(options.publicationMode!=='provider'||resolved.publicationEnabled!==true)throw new ApiError(503,'Activeer eerst publicatie voor deze clubkoppeling.','publication_configuration_missing');
  const row=(await db.query('SELECT status,account_id,version,destinations,expires_at,encrypted_tokens FROM castiq.social_connections WHERE club_id=$1 AND provider=$2',[clubId,provider])).rows[0];

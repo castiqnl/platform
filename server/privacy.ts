@@ -25,9 +25,11 @@ export async function eraseIntegrationActorReferences(db:Pick<pg.PoolClient,'que
  for(const table of ['template_versions','template_audit','plan_events','social_events','integration_events'])await db.query(`UPDATE castiq.${table} SET actor_id=$2 WHERE actor_id=$1`,[actorId,pseudonym]);
  await db.query('UPDATE castiq.plan_policies SET created_by=$2 WHERE created_by=$1',[actorId,pseudonym]);
  for(const table of ['club_plan_choices','social_connections','club_integrations'])await db.query(`UPDATE castiq.${table} SET updated_by=$2 WHERE updated_by=$1`,[actorId,pseudonym]);
+ for(const table of ['post_for_me_config','post_for_me_connections'])await db.query(`UPDATE castiq.${table} SET updated_by=$2 WHERE updated_by=$1`,[actorId,pseudonym]);
  // Incomplete authorizations cannot outlive their initiating personal account.
  // Connected club credentials are separate and remain available to other club administrators.
  await db.query("UPDATE castiq.social_oauth_flows SET actor_id=$2,status=CASE WHEN status IN ('pending','processing','select') THEN 'expired' ELSE status END,encrypted_verifier=NULL,encrypted_candidates=NULL,candidates='[]'::jsonb WHERE actor_id=$1",[actorId,pseudonym]);
+ await db.query("UPDATE castiq.post_for_me_flows SET actor_id=$2,status=CASE WHEN status IN ('pending','returned','select') THEN 'expired' ELSE status END,session_hash=repeat('0',64),browser_hash=repeat('0',64),callback_result='{}',candidates='[]' WHERE actor_id=$1",[actorId,pseudonym]);
  await pseudonymizeTemplateRequestActor(db,actorId,pseudonym);
 }
 export function createPrivacyService(options:PrivacyOptions){

@@ -29,7 +29,7 @@ Runtime Node **24.18.0**, npm **11.16.0**. Installatie `npm ci` uit de lockfile.
 
 De exact vier GitHub-variabelen staan per environment: `CASTIQ_APP_ORIGIN`, **`CASTIQ_DATA_MODE=supabase`**, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`. Ze zijn publiek en worden ingebakken. De kandidaat is aan hun hash gebonden. Er zijn geen deploymentsecrets of vijfde providerflags als GitHub-variabele toegevoegd.
 
-De private runtime bevat daarnaast `DATABASE_URL`, `MAIL_ENCRYPTION_KEY`, `PRIVACY_LEDGER_HMAC_KEY`, `SUPABASE_ACCOUNT_OPERATIONS_KEY` en eventueel `PRIVACY_RETENTION_EXECUTE` (aanvankelijk `false`). De roothelper stelt de overige vaste runtimepaden en de SHA in. [BENODIGDE-GEGEVENS.md](BENODIGDE-GEGEVENS.md) specificeert bronnen en open providergegevens.
+De private runtime bevat daarnaast `DATABASE_URL`, `MAIL_ENCRYPTION_KEY`, `PRIVACY_LEDGER_HMAC_KEY`, `SUPABASE_ACCOUNT_OPERATIONS_KEY` en eventueel `PRIVACY_RETENTION_EXECUTE` (momenteel `false`). Het nieuwe stagingprofiel voegt afzonderlijke `CHANNEL_TOKEN_ENCRYPTION_KEY`, `PUBLICATION_MEDIA_SIGNING_KEY` en `PUBLICATION_MODE=provider` toe; de helper controleert dat de sleutels onderling verschillen. De roothelper stelt de overige vaste runtimepaden en de SHA in. [BENODIGDE-GEGEVENS.md](BENODIGDE-GEGEVENS.md) specificeert bronnen en open providergegevens.
 
 Een beperkte Postgres-serverrol heeft toegang tot het private Castiq-schema, zonder schema-/rolbeheer, bypass-RLS of Auth-schema. De vertrouwde API/worker gebruikt dit serverrecht; tenant- en teamrechten worden bij ieder API-verzoek server-side uit actuele memberships gecontroleerd. Anon/authenticated hebben geen toegang tot dat schema. De browser verbindt uitsluitend met Supabase Auth en de geautoriseerde Castiq-API. De platformrol krijgt metadata en templatebeheer, geen standaard clubinhoud.
 
@@ -63,7 +63,7 @@ Voor activatie moet een beheerder de werkelijke controles hebben uitgevoerd en `
 ```json
 {
   "sha": "VOLLEDIGE_SHA",
-  "runtime_config_id": "initial-20261122",
+  "runtime_config_id": "provider-selfservice-20261123",
   "database_migrated_and_compatible": true,
   "encrypted_backup_restore_verified": true,
   "private_access_verified": true,
@@ -73,7 +73,7 @@ Voor activatie moet een beheerder de werkelijke controles hebben uitgevoerd en `
 
 Dit zijn bewijsvelden, geen vervanging voor tests. Verifieer migratiechecksums met het kandidaatartifact, de beperkte DB-verbinding met TLS/hostnamecontrole, werkelijk versleutelde backup en geïsoleerd herstel, ongeautoriseerde API-weigering, juiste account-/tenantgrenzen en de root-only unitgebonden isolatiemarkering. Een ontbrekend extern e-mailbewijs blijft afzonderlijk open; app-readiness bewijst geen mailaflevering of echte socialpublicatie.
 
-[AUTH-EN-MAIL.md](AUTH-EN-MAIL.md) bevat de afzonderlijke noodzakelijke Auth-URL/OTP/templateconfiguratie. De gebruiker stelt deze zelf in via het Supabase-dashboard; de exports zijn nog niet toegepast of extern geverifieerd. De Castiq Resend API-sleutel ontbreekt nog en wordt later via platformbeheer ingevoerd. Gegevensafhankelijke migraties vereisen vooraf backup en compatibiliteitsbeoordeling. Runtime heeft geen migratierecht; pas de gereviewde SQL via de geautoriseerde Supabase-verbinding toe. Reeds toegepaste SQL-bestanden wijzigen is verboden. Ruwe productiedata worden niet in tests geladen.
+[AUTH-EN-MAIL.md](AUTH-EN-MAIL.md) bevat de afzonderlijke Auth-URL/OTP/templateconfiguratie. De eigenaar bevestigt werkende persoonlijke login; deze uitrol wijzigt geen productie-Auth-instellingen. Een bevestigde login bewijst geen aflevering van de afzonderlijke Castiq-mails: daarvoor ontbreken nog de Resend API-sleutel, geverifieerde afzender en webhookconfiguratie in platformbeheer. Gegevensafhankelijke migraties vereisen vooraf backup en compatibiliteitsbeoordeling. Runtime heeft geen migratierecht; pas de gereviewde SQL via de geautoriseerde Supabase-verbinding toe. Reeds toegepaste SQL-bestanden wijzigen is verboden. Ruwe productiedata worden niet in tests geladen.
 
 De gebruiker heeft stagingactivatie in deze taak geautoriseerd. **Publieke productieactivatie is een afzonderlijke opdracht.** Een productiekandidaat en gecontroleerde inrichting zijn daarvan gescheiden resultaten.
 
@@ -83,7 +83,7 @@ De gebruiker heeft stagingactivatie in deze taak geautoriseerd. **Publieke produ
 gh workflow run castiq-dg-vps-08-staging-activate.yml \
   --repo castiqnl/platform --ref main \
   -f environment=staging -f sha=VOLLEDIGE_SHA \
-  -f candidate_id=KANDIDAAT_ID -f runtime_config_id=initial-20261122
+  -f candidate_id=KANDIDAAT_ID -f runtime_config_id=provider-selfservice-20261123
 ```
 
 De roothelper controleert opnieuw SHA/CI, kandidaat-/runtimehash en omgeving. Onder één activatielock maakt hij een onveranderlijk app-/runtimepaar, stopt alleen de eigen worker indien nodig, wisselt alleen de eigen `current`, start de eigen service en controleert health+readiness op precies die SHA. Pas daarna start de eigen worker en wordt het paar gezond gemarkeerd. Een geslaagde activatieprocedure is nog geen externe gebruikersacceptatie.
@@ -104,9 +104,9 @@ sudo -n systemctl enable castiq-vps08-staging.service castiq-vps08-staging-worke
 systemctl is-active castiq-vps08-staging.service castiq-vps08-staging-worker.service
 ```
 
-De huidige stagingrelease is `3cf040cf91e0e15c2fa2f7f52d82a48165f004d9-45271236093-1-initial-20261122`. Het [kanaalwizard-uitrolbewijs](deploy-evidence/staging-channel-wizards-2026-11-23.json) toont de nieuwe activatie en dezelfde runtimebronnen als de vorige gezonde combinatie `4c39c3a6cf099ff6655b29cee15c67712bb4c14a-45263874016-1-initial-20261122`. De werkelijke vrijgave, verse backup met geïsoleerd herstel, migraties 001–010 en ongewijzigde Fabelpad-/productiegrenzen staan in [het uitrolbewijs van 23 november](deploy-evidence/staging-release-2026-11-23.json). De bestaande proxyconfiguratie is behouden. Behoud bij een volgende release altijd de dan aangetroffen gezonde stand.
+De huidige stagingrelease is `27bf3aa881281042e61cd8823771cfe0a373bb0a-45278451848-1-provider-selfservice-20261123`. Het [uitrolbewijs](deploy-evidence/staging-club-completion-2026-11-23.json) legt CI `45277748231`, kandidaatbouw `45278451848`, activatie `45278771029`, 14 migraties en de geïsoleerde serverproef vast. De vorige gezonde combinatie `3cf040cf91e0e15c2fa2f7f52d82a48165f004d9-45271236093-1-initial-20261122` blijft bewaard, met een expliciete compatibiliteitsgrens naar schema-v14. Een verse versleutelde back-up van alle 41 oude applicatietabellen is geïsoleerd hersteld vóór migratie. Proxy, productie en Fabelpad zijn ongewijzigd.
 
-De marketing-/juridische pagina’s zijn publiek; alle persoonlijke en clubgegevens en beheerschermen vereisen server-gecontroleerde identiteit/rechten. De huidige kanaaladapter blijft uitsluitend sandbox. Een enqueue, export, timeout of demo-receipt is nooit een echte openbare post.
+Marketing en juridische pagina’s blijven publiek; persoonlijke/clubgegevens en beheer vereisen server-gecontroleerde identiteit en rechten. De nieuwe provideradapter is per club beschikbaar na echte inrichting en toestemming. Er zijn bij deze uitrol geen echte providerposts aangemaakt.
 
 ## Serverafronding en providerpublicatie
 
@@ -133,4 +133,4 @@ Bij een mislukte **eerste** activatie zonder vorige gezonde release stopt de hel
 
 Voer geen live rollback uit als test. Offline release-boundarytests dekken beide omgevingen, lockconflicten, fouten tijdens eerste activatie/herstel, schemagrenzen en blijvend behoud van de onafhankelijke ledger. Werkelijke deploymentresultaten en exacte SHA staan in [STATUS.md](STATUS.md).
 
-Sinds de kanaalwizardactivatie wijst `previous` naar de volledig gezonde combinatie `4c39c3a6cf099ff6655b29cee15c67712bb4c14a-45263874016-1-initial-20261122`. Server, database, gedeelde domeinbronnen en dependencybestanden zijn bytegelijk; alleen de kanaalinterface is gewijzigd. De volgende beperking betreft uitsluitend een verdere historische terugkeer naar `f38e8f77963761157315accfb6d96140f0cae9bb-45074332095-1-initial-20261122`. Dertien geïsoleerde controles tonen dat deze oudere code met het uitgebreide schema kan werken. Het behouden compatibiliteitslabel `castiq-schema-v8` dekt die structurele compatibiliteit; oude code maakt geen nieuwe managed template-/pakketsnapshots en kent de nieuwe kanaalintrekkingscontrole niet. Na nieuwe managed activiteit: pauzeer bij een noodterugkeer de worker en beperk clubschrijfacties tot de juiste code is hersteld. Een gewone helperrollback herstart de worker, dus gebruik die dan niet zonder deze aanvullende operationele beperking. Er is geen live rollback als test uitgevoerd. De oorspronkelijke API-only release `7cdb874…` blijft uitgesloten als gezond rollbackdoel.
+Sinds de serverafronding wijst `previous` naar `3cf040cf91e0e15c2fa2f7f52d82a48165f004d9-45271236093-1-initial-20261122`. Dit is een bewaard gezond paar voor het eerdere schema-v8, geen direct herstartbaar rollbackdoel vanaf schema-v14. De eerdere bewijzen voor interfacewijzigingen en historische v8-compatibiliteit blijven als archief behouden en verlenen geen toestemming om deze nieuwe schemagrens te passeren. Gebruik bij herstel de expliciete quarantaineprocedure en de geverifieerde pre-migratieback-up. Er is geen live rollback als test uitgevoerd.

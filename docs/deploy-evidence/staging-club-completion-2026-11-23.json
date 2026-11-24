@@ -1,0 +1,224 @@
+{
+  "checkedAt": "2026-11-23T22:23:43.005670+00:00",
+  "scope": "Castiq staging only",
+  "origin": "https://staging.castiq.nl",
+  "sourceSha": "27bf3aa881281042e61cd8823771cfe0a373bb0a",
+  "implementationSha": "1dd04c696f75551337d7a16a4f7148680ebbb525",
+  "pullRequest": "https://github.com/castiqnl/platform/pull/4",
+  "ciRun": 45277748231,
+  "buildRun": 45278451848,
+  "activationRun": 45278771029,
+  "workflowConclusions": {
+    "exactMainCI": "success",
+    "candidateBuild": "success",
+    "activation": "success"
+  },
+  "live": {
+    "checkedAt": "2026-11-23T22:21:49.857554+00:00",
+    "releaseId": "27bf3aa881281042e61cd8823771cfe0a373bb0a-45278451848-1-provider-selfservice-20261123",
+    "sha": "27bf3aa881281042e61cd8823771cfe0a373bb0a",
+    "runtimeConfigId": "provider-selfservice-20261123",
+    "databaseCompatibility": "castiq-schema-v14",
+    "candidateId": "27bf3aa881281042e61cd8823771cfe0a373bb0a-45278451848-1",
+    "activationRunId": "45278771029-1",
+    "previousReleaseId": "3cf040cf91e0e15c2fa2f7f52d82a48165f004d9-45271236093-1-initial-20261122",
+    "previousSha": "3cf040cf91e0e15c2fa2f7f52d82a48165f004d9",
+    "units": {
+      "castiq-vps08-staging.service": {
+        "MainPID": "882070",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "castiq-vps08-staging-worker.service": {
+        "MainPID": "882097",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      }
+    },
+    "assets": [
+      {
+        "path": "/assets/PlatformTemplateStudio-CJbXzVtX.js",
+        "sha256": "e14d93058bd906445bff5337b58d1319fdc550c3e213054e3978745e5b055054"
+      },
+      {
+        "path": "/assets/PlatformTemplateStudio-Dafc5cbk.css",
+        "sha256": "f5ed564967c00e3637e383e9e180569ecb15ae9ea595345561730943fddc2609"
+      },
+      {
+        "path": "/assets/SocialConnections-Dvpo4WEx.js",
+        "sha256": "91f26665749ec19fc70fc6273b9784a5e1913754c07fb638e6e91017bbcaefb9"
+      },
+      {
+        "path": "/assets/SocialConnections-qQACnV3N.css",
+        "sha256": "90fe12b63fa0560a1b9d1b5743eaf7f1a7ee4e233215d3699296302642cefa19"
+      },
+      {
+        "path": "/assets/auth-vendor-CB7MGzWB.js",
+        "sha256": "b08ef7d102649174a68d175e0ce67571100cd15b84444698cab938dea6e3d891"
+      },
+      {
+        "path": "/assets/icon-dark.svg",
+        "sha256": "d4ee47ca26317281f3686deb34a96555be03c32931e434425ded22856c1ee47c"
+      },
+      {
+        "path": "/assets/icons-7s1ry9ml.js",
+        "sha256": "61cc805413e1c977013f19821f5a6cf69022be4b801ccff0131425e2d7f8302c"
+      },
+      {
+        "path": "/assets/index-PWE_1RAI.css",
+        "sha256": "73c997a2d00c07bbaabd80d6b5c89d2e4777931a2fe33a88f013207504c69b9b"
+      },
+      {
+        "path": "/assets/index-nWHBol_S.js",
+        "sha256": "2e8b1817fe9e160d62bac385366207770c4c282316220f6ffc5866499b69647d"
+      },
+      {
+        "path": "/assets/motion-BX2GZ47w.js",
+        "sha256": "2c9b8ae8fb76f2806c21168d5af3c6df88a230b41f6a9e10b7919f70aeba7bb1"
+      },
+      {
+        "path": "/assets/react-vendor-BXLIGLbp.js",
+        "sha256": "d7728ea4cbb253711a1acec39cb4470d4ade58ff77ce7e55e796437ec23e1bab"
+      }
+    ],
+    "readiness": {
+      "migrationCount": 14,
+      "backupId": "backup-06e77173-a720-47c9-a63d-d8531f654209",
+      "rollbackMode": "quarantine",
+      "serverImageRenderVerified": true,
+      "renderFormats": 2,
+      "workerProbeVerified": true,
+      "privacyDestructiveRetentionEnabled": false
+    }
+  },
+  "publicSmoke": {
+    "/api/health": 200,
+    "publicationMode": "provider-per-club",
+    "/api/readiness": 200,
+    "/api/workspace": 401,
+    "/api/admin/integrations": 401,
+    "/api/template-requests": 401,
+    "/api/club/integrations": 401,
+    "/api/club/media": 401,
+    "/api/publication-media/invalid": 404,
+    "anonymousSessionWithoutFixtures": true,
+    "fixtureLoginRefused": 405,
+    "publicAssetsMatched": 11,
+    "sha": "27bf3aa881281042e61cd8823771cfe0a373bb0a"
+  },
+  "candidateProbe": {
+    "environment": "staging",
+    "candidateId": "27bf3aa881281042e61cd8823771cfe0a373bb0a-45278451848-1",
+    "proofPath": "/etc/dg-webservices/castiq-vps08-staging/candidate-verified-27bf3aa881281042e61cd8823771cfe0a373bb0a-45278451848-1.json",
+    "health": 200,
+    "readiness": 200,
+    "unauthenticatedPrivateApi": 401,
+    "fixtureLogin": 405,
+    "invalidJwt": 401,
+    "temporaryUnitStopped": true,
+    "activated": false
+  },
+  "backup": {
+    "backupId": "backup-06e77173-a720-47c9-a63d-d8531f654209",
+    "encrypted": true,
+    "schema": "castiq",
+    "tables": 41,
+    "rows": 131,
+    "uploads": 0,
+    "registered": true,
+    "providerRetentionVerified": false
+  },
+  "isolatedRestore": {
+    "backupId": "backup-06e77173-a720-47c9-a63d-d8531f654209",
+    "encryptedBackupAuthenticated": true,
+    "isolatedPostgresVersion": "17.12 (Debian 17.12-1.pgdg12+1)",
+    "restoredTables": 41,
+    "restoredRows": 131,
+    "allTableCountsAndDigestsMatched": true,
+    "uploadsAuthenticated": 0,
+    "temporaryDataStorage": "tmpfs",
+    "network": "none",
+    "plaintextDumpFilesCreated": false,
+    "providerRetentionVerified": false
+  },
+  "boundaryUpdate": {
+    "siteId": "castiq-vps08-staging",
+    "updatedHelpers": [
+      "release.py",
+      "healthcheck.mjs",
+      "configuration.mjs"
+    ],
+    "releaseHelperSha256": "2dea7bff538fbc07ead5472a2c973e201d81ec5e520ed5cfb9a9362cd7356d00",
+    "runtimeConfigId": "provider-selfservice-20261123",
+    "distinctProviderKeysGenerated": true,
+    "providerCredentialsConfigured": false,
+    "productionChanged": false
+  },
+  "schema": {
+    "migrationCount": 14,
+    "privateTableCount": 47,
+    "unprotectedTableCount": 0,
+    "publicAnonAuthenticatedTableGrants": 0,
+    "providerJobsAtActivation": 0,
+    "configuredProviderAppsAtActivation": 0,
+    "supabaseToolBookkeeping": "Migration 013 DDL and application checksum committed; a tool migration timestamp collision was recovered with a verification-only migration. All fourteen application checksums were rechecked."
+  },
+  "localChecks": {
+    "domainModelRendering": 35,
+    "server": 135,
+    "browser": 55,
+    "nodeRelease": 26,
+    "pythonRelease": 44,
+    "types": true,
+    "productionBuild": true,
+    "assetHashes": 50,
+    "exactLegalArchives": true
+  },
+  "protectedServicesUnchanged": {
+    "fabelpad-vps08-staging": true,
+    "fabelpad-vps08-production": true,
+    "caddy": true,
+    "castiq-vps08-production": true,
+    "castiq-vps08-production-worker": true
+  },
+  "protectedCurrentsUnchanged": {
+    "fabelpad-vps08-staging": true,
+    "fabelpad-vps08-production": true,
+    "castiq-vps08-production": true
+  },
+  "proxyConfigHashesUnchanged": true,
+  "productionActivated": false,
+  "externalProviderPostsMade": false,
+  "ownerConfirmedPersonalLogin": true,
+  "realProviderConsentVerified": false,
+  "automaticBillingImplemented": false,
+  "privacyDestructiveRetentionEnabled": false,
+  "inheritedSecurityAdvisories": [
+    {
+      "notice": "Operation keys intentionally have RLS with no browser policy",
+      "url": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy"
+    },
+    {
+      "notice": "Password leak protection remains disabled; current application login uses OTP/Google",
+      "url": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection"
+    }
+  ],
+  "publicBrowser": [
+    {
+      "width": 1440,
+      "status": 200,
+      "emailLoginVisible": true,
+      "clientErrors": 0,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 390,
+      "status": 200,
+      "emailLoginVisible": true,
+      "clientErrors": 0,
+      "noHorizontalOverflow": true
+    }
+  ]
+}

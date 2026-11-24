@@ -5,8 +5,9 @@ import sharp from 'sharp';
 import type pg from 'pg';
 import {ApiError} from './workflow.ts';
 import {verifyPublicationPayload} from './publicationIntegrity.ts';
+import {assertPostForMeDestination,type PostForMeOptions} from './postForMe.ts';
 import {resolveSocialOptions,decryptChannelSecret,type SocialOptions,type Provider} from './socialConnections.ts';
-export type PublicationMediaOptions={origin:string;environment:string;key?:string;uploadDir:string;staticDir:string;social?:SocialOptions;now?:()=>Date};
+export type PublicationMediaOptions={origin:string;environment:string;key?:string;uploadDir:string;staticDir:string;social?:SocialOptions;postForMe?:PostForMeOptions;now?:()=>Date};
 const sha=(bytes:Buffer|string)=>createHash('sha256').update(bytes).digest('hex');
 const missing=()=>{throw new ApiError(404,'Publicatiebeeld niet beschikbaar.','not_found');};
 const dimensions={'4:5':[1080,1350],'9:16':[1080,1920],'1:1':[1080,1080],'16:9':[1600,900]};
@@ -61,10 +62,15 @@ export async function readPublicationMedia(pool:pg.Pool,url:URL,options:Publicat
  const id=/^\/api\/publication-media\/([a-zA-Z0-9_-]{1,160})$/.exec(url.pathname)?.[1],clubId=url.searchParams.get('club')||'',expires=Number(url.searchParams.get('expires')),signature=url.searchParams.get('signature')||'',now=Math.floor((options.now?.()||new Date()).getTime()/1000);
  if(!id||!clubId||clubId.length>100||!Number.isInteger(expires)||expires<=now||expires>now+3600||!/^[a-f0-9]{64}$/.test(signature))missing();
  const result=await pool.query('SELECT j.state,w.state AS workspace FROM castiq.jobs j JOIN castiq.workspaces w ON w.club_id=j.club_id WHERE j.id=$1 AND j.club_id=$2 AND j.provider_mode=\'provider\'',[id,clubId]),row=result.rows[0],job=row?.state;
- if(!job||!['processing','awaiting_confirmation'].includes(job.status)||job.adapter!=='official-provider')missing();
+ if(!job||!['processing','awaiting_confirmation'].includes(job.status)||!['official-provider','post-for-me'].includes(job.adapter))missing();
  const expected=sign(clubId,job,expires,options);if(!timingSafeEqual(Buffer.from(expected,'hex'),Buffer.from(signature,'hex')))missing();
  const item=row.workspace.content?.find((item:any)=>item.jobs?.some((entry:any)=>entry.id===id));
  if(row.workspace.v1?.publicationPaused||!item||item.version!==job.version||item.approvedVersion!==job.version)missing();
+ if(job.adapter==='post-for-me'){
+  if(!options.postForMe)missing();let destination:any;try{destination=await assertPostForMeDestination(pool,clubId,job.channel,options.postForMe);}catch{missing();}
+  if(destination.accountId!==job.providerAccountId||destination.authorizationId!==job.providerAuthorizationId||destination.projectId&&destination.projectId!==job.providerProjectId)missing();
+  return {bytes:await renderPublicationMedia(pool,clubId,job,options),contentType:'image/jpeg' as const};
+ }
  const provider=(job.channel.toLowerCase().startsWith('instagram')?'instagram':job.channel.toLowerCase().startsWith('facebook')?'facebook':'x') as Provider;
  if(options.social?.publicationMode!=='provider')missing();const social=await resolveSocialOptions(options.social!,clubId,provider);if(social.publicationEnabled!==true)missing();
  const connection=(await pool.query("SELECT account_id,encrypted_tokens,expires_at FROM castiq.social_connections WHERE club_id=$1 AND provider=$2 AND status='connected' AND destinations ? $3",[clubId,provider,job.channel])).rows[0];

@@ -13,7 +13,7 @@ import {downloadEditorialPng} from './editorialExport';
 import {getPartnerBranding} from './partnerBranding';
 import {availableTemplates,managedType,snapshotTemplate,studioFormats,toPosterLayers,type ManagedSnapshot} from './template-studio/managedTemplates';
 
-const labels:Record<string,string>={draft:'Concept',review:'Ter goedkeuring',changes:'Aanpassing gevraagd',approved:'Goedgekeurd',queued:'In verwerking',scheduled:'Ingepland',published:'Demo bevestigd',failed:'Aandacht nodig',awaiting_confirmation:'Wacht op bevestiging',cancelled:'Vervallen'};
+const labels:Record<string,string>={draft:'Concept',review:'Ter goedkeuring',changes:'Aanpassing gevraagd',approved:'Goedgekeurd',queued:'Bezig',processing:'Bezig',scheduled:'Ingepland',published:'Demo bevestigd',failed:'Mislukt',awaiting_confirmation:'Wacht op bevestiging',cancelled:'Vervallen'};
 const policyLabels:Record<string,string>={full:'Volledige naam',first:'Alleen voornaam',initials:'Voornaam + initiaal',anonymous:'Geen spelersnaam'};
 const privacyMap:Record<string,string>={full:'Volledige naam',first:'Voornaam',initials:'Voornaam + initiaal',anonymous:'Anoniem'};
 const id=()=>newId();

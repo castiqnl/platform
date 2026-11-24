@@ -85,7 +85,7 @@ function ServerActivity({onOpenContent}: Pick<Props, 'onOpenContent'>) {
 function ServerStats({onNavigate}: Pick<Props, 'onNavigate'>) {
   const {state} = useCastiq();
   const jobs = state.content.flatMap(item => (item.jobs || []).map((job: any) => ({...job, itemId: item.id})));
-  const confirmed = jobs.filter((job: any) => job.status === 'published' && job.providerMode === 'provider' && job.adapter === 'official-provider' && job.receipt?.kind === 'provider' && job.receipt.providerPostId && job.receipt.confirmedAt && job.requestId && job.receipt.requestId === job.requestId && job.receipt.version === job.version);
+  const confirmed = jobs.filter((job: any) => job.status === 'published' && job.providerMode === 'provider' && ['official-provider', 'post-for-me'].includes(job.adapter) && job.receipt?.kind === 'provider' && job.receipt.providerPostId && job.receipt.confirmedAt && job.requestId && job.receipt.requestId === job.requestId && job.receipt.version === job.version);
   const sandbox = jobs.filter((job: any) => job.status === 'published' && job.receipt?.kind === 'demo' && job.receipt.providerPostId);
   const maxContent = Math.max(1, ...state.teams.map(team => state.content.filter(item => item.team === team.name).length));
   return <div className="scm"><PageTitle title="Statistieken" description="Inzichten op basis van de werkelijk vastgelegde wedstrijden, bijdragen en publicatiebevestigingen."/><div className="scm-metrics">{[['Wedstrijden', state.matches.length], ['Bijdragen', state.content.length], ['Extern bevestigd', confirmed.length], ['Sandbox bevestigd', sandbox.length]].map(([label, value]) => <section className="scm-panel" key={label}><span>{label}</span><strong>{value}</strong></section>)}</div>
