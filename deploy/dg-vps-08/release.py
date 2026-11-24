@@ -231,7 +231,7 @@ def build(sha, run_id, payload):
             try:
                 artifact = staging / 'artifact'
                 copy_runtime_artifact(source, artifact)
-                metadata = {'candidateId': candidate_id, 'sha': sha, 'configId': config_id, 'runId': run_id, 'environment': ENVIRONMENT, 'siteId': SITE_ID, 'node': '24.18.0', 'npm': '11.16.0', 'ci': admission, 'publicationMode': 'per-club-provider', 'databaseCompatibility': 'castiq-schema-v14'}
+                metadata = {'candidateId': candidate_id, 'sha': sha, 'configId': config_id, 'runId': run_id, 'environment': ENVIRONMENT, 'siteId': SITE_ID, 'node': '24.18.0', 'npm': '11.16.0', 'ci': admission, 'publicationMode': 'per-club-provider', 'databaseCompatibility': 'castiq-schema-v15'}
                 (staging / 'release.json').write_text(json.dumps(metadata, indent=2) + '\n')
                 app = pwd.getpwnam(APP_USER)
                 for parent, directories, files in os.walk(staging):
